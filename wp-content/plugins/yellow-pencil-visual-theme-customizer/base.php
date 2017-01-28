@@ -20,13 +20,12 @@ function yp_get_slider_markup($cssName, $name, $default = 'inherit', $decimals, 
     }
 
     $notice_last = null;
+
     if(!defined("WTFV")){
 	    if($cssName == 'width' || $cssName == 'height' || $cssName == 'opacity'){
 	    	$notice_last = "<p class='yp-alert-warning yp-notice-last'>".$name." ".__('property not available for lite version.','yp')." <a target='_blank' href='http://waspthemes.com/yellow-pencil/buy'>".__('Upgrade','yp')."?</a></p>";
 	    }
     }
-
-
     
     return "<div id='" . $cssName . "-group' class='yp-option-group yp-slider-option' data-css='" . $cssName . "' data-decimals='" . $decimals . "' data-pxv='" . $pxv . "' data-pcv='" . $pcv . "' data-emv='" . $emv . "'>
                 
@@ -37,7 +36,7 @@ function yp_get_slider_markup($cssName, $name, $default = 'inherit', $decimals, 
                 
             <div class='yp-after'>
                 <input type='text' id='" . $cssName . "-value' class='yp-after-css yp-after-css-val' autocomplete='off' />
-                <input type='text' id='" . $cssName . "-after' class='yp-after-css yp-after-prefix' autocomplete='off' /><small>(px % em)</small>
+                <input type='text' id='" . $cssName . "-after' class='yp-after-css yp-after-prefix' autocomplete='off' /><small>(px vh % em)</small>
             </div>
                 
             </div>
@@ -65,9 +64,15 @@ function yp_get_select_markup($cssName, $name, $values, $default = 'none',$note 
         $defaultLink = '';
     }
 
+    if ($cssName == 'animation-name' && $default != false) {
+        $defaultLink = "<a class='yp-visual-editor-link'>Animator</a><a class='yp-btn-action yp-none-btn'>" . $default . "</a>";
+    }
+
+    
+
     $notice_last = null;
     if(!defined("WTFV")){
-	    if($cssName == 'font-family' || $cssName == 'text-shadow'){
+	    if($cssName == 'font-family'){
 	    	$notice_last = "<p class='yp-alert-warning yp-notice-last'>".$name." ".__('property not available for lite version.','yp')." <a target='_blank' href='http://waspthemes.com/yellow-pencil/buy'>".__('Upgrade','yp')."?</a></p>";
 	    }
     }
@@ -126,11 +131,6 @@ function yp_get_radio_markup($cssName, $name, $values, $default = 'none',$note =
     }
 
     $notice_last = null;
-    if(!defined("WTFV")){
-	    if($cssName == 'text-transform'){
-	    	$notice_last = "<p class='yp-alert-warning yp-notice-last'>".$name." ".__('property not available for lite version.','yp')." <a target='_blank' href='http://waspthemes.com/yellow-pencil/buy'>".__('Upgrade','yp')."?</a></p>";
-	    }
-    }
     
     $return = "<div id='" . $cssName . "-group' class='yp-option-group yp-radio-option' data-css='" . $cssName . "'>
                 
@@ -192,7 +192,7 @@ function yp_get_color_markup($cssName, $name,$note = null)
                     <label class='yp-option-label'><span".$tooltip.">" . strtoupper($name) . "</span>: <a class='yp-btn-action yp-none-btn'>".__('transparent','yp')."</a> <a class='yp-btn-action yp-disable-btn'></a></label>
                     
                     <div class='yp-color-input-box'>
-                    <input id='yp-" . $cssName . "' type='text' maxlength='7' size='7' class='wqcolorpicker' value='' />
+                    <input id='yp-" . $cssName . "' type='text' maxlength='22' size='22' class='wqcolorpicker' value='' />
                 	<span class='wqminicolors-swatch-color'></span>
                 	</div>
 
@@ -448,7 +448,6 @@ function yp_get_input_markup($cssName, $name, $none = null, $note = null)
     return $return;
     
 }
-
 
 
 

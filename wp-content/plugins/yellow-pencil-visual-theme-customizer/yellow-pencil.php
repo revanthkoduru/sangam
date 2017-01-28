@@ -2,8 +2,8 @@
 /*
 Plugin Name: WaspThemes - Yellow Pencil Lite
 Plugin URI: http://waspthemes.com/yellow-pencil
-Description: Easily customize WordPress themes, live. Google Fonts, Backgrounds, Animations and more! The best wordpress customizer plugin. 
-Version: 5.4.5
+Description: Customize your WordPress site in minutes and keep the site design under your control with 100% front-end Style Editor. 
+Version: 5.5.5
 Author: WaspThemes
 Author URI: http://www.waspthemes.com
 */
@@ -17,30 +17,37 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 
-// Check if lite version or not.
+/* ---------------------------------------------------- */
+/* Check if lite version or not. 						*/
+/* ---------------------------------------------------- */
 if(strstr(__FILE__,"yellow-pencil-visual-theme-customizer")){
 	$lite_dir = __FILE__;
+	$currentVersion = 'lite';
 	$pro_dir = str_replace("yellow-pencil-visual-theme-customizer", "waspthemes-yellow-pencil", __FILE__);
 }else{
 	$pro_dir = __FILE__;
+	$currentVersion = 'pro';
 	$lite_dir = str_replace("waspthemes-yellow-pencil", "yellow-pencil-visual-theme-customizer", __FILE__);
 }
 
-// Checking.
+// Checking if files exists
 $pro_exists = file_exists($pro_dir);
 $lite_exists = file_exists($lite_dir);
 
 // If pro version is there?
 if($pro_exists == true && $lite_exists == true){
 
+	// Be sure deactivate_plugins function is exists
 	if(!function_exists("deactivate_plugins")){
 		require_once(ABSPATH .'wp-admin/includes/plugin.php');
 	}
 
-	deactivate_plugins(plugin_basename($lite_dir)); // Deactive lite version.
+	// deactivate Lite Version.
+	deactivate_plugins(plugin_basename($lite_dir));
+
 }
 
-// Editor uri.
+// Generate Base Editor URL.
 function yp_uri(){
 	if(current_user_can("edit_theme_options") == true){
 		return admin_url('admin.php?page=yellow-pencil-editor');
@@ -57,44 +64,38 @@ define( 'WT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 define( 'YP_MODE', "min"); // min & dev.
-define( 'YP_VERSION', "5.4.5");
+define( 'YP_VERSION', "5.5.5");
 
 
-// For 5.2.2 version database update.
-function yp_plugin_database_update(){
+// Check for free trial
+$trialStatus = get_option('yp_activate_free_trial');
+$trialTime = get_option('yp_activate_free_trial_time');
 
-	global $table_prefix;
+// Check trail version.
+if($trialStatus == 'true' && $currentVersion == 'lite'){
 
-	if(get_option("yp_522_v_update_status") != 'true'){
+	$currentTime = time();
+	$dif = $currentTime - $trialTime;
 
-		global $wpdb;
-		$wpdb->update(''.$table_prefix.'postmeta', array('meta_key' => "_wt_css"), array('meta_key'=> "wt_css"));
-		$wpdb->update(''.$table_prefix.'postmeta', array('meta_key' => "_wt_styles"), array('meta_key'=> "wt_styles"));
+	// Time Check
+	if(($dif / 60) <= 2880){
 
-		$wpdb->update(''.$table_prefix.'options', array('option_name' => "yp_username"), array('option_name'=> "username"));
-		$wpdb->update(''.$table_prefix.'options', array('option_name' => "yp_apikey"), array('option_name'=> "apikey"));
-		$wpdb->update(''.$table_prefix.'options', array('option_name' => "yp_purchase_code"), array('option_name'=> "purchase_code"));
-		add_option("yp_522_v_update_status","true");
+		define('WTFV', TRUE);
 
-		delete_option("yp_521_v_update_status"); // delete old.
+	}else{
+
+		update_option('yp_activate_free_trial_end','true');
+		update_option('yp_activate_free_trial','false');
 
 	}
 
 }
 
-add_action("init","yp_plugin_database_update");
 
 
 /* ---------------------------------------------------- */
-/* Adding info to header								*/
+/* Add animation ajax callback							*/
 /* ---------------------------------------------------- */
-function yp_info_in_header(){
-	echo '<meta name="generator" content="Customized By Yellow Pencil Plugin" />' . "\n";
-}
-remove_action('wp_head', 'wp_generator');
-add_action( 'wp_head', 'yp_info_in_header' );
-
-
 function yp_add_animation(){
 
 	if(current_user_can("edit_theme_options") == true){
@@ -113,17 +114,22 @@ function yp_add_animation(){
 add_action( 'wp_ajax_yp_add_animation', 'yp_add_animation' );
 
 
+
+
 /* ---------------------------------------------------- */
-/* Load Translation Text Domain							*/
+/* Get Translation Text Domain							*/
 /* ---------------------------------------------------- */
-function yp_plugin_lang() {
+function yp_plugin_lang(){
 	load_plugin_textdomain( 'yp', false, dirname(plugin_basename( __FILE__ )) . '/languages' ); 
 }
 add_action( 'plugins_loaded', 'yp_plugin_lang' );
 
 
-add_filter( 'plugin_action_links', 'yp_customize_link', 10, 2 );
 
+
+/* ---------------------------------------------------- */
+/* Add a customize link in wp plugins page				*/
+/* ---------------------------------------------------- */
 function yp_customize_link($links,$file){
 
     if($file == plugin_basename(dirname(__FILE__) . '/yellow-pencil.php')){
@@ -133,15 +139,17 @@ function yp_customize_link($links,$file){
     return $links;
 }
 
+add_filter( 'plugin_action_links', 'yp_customize_link', 10, 2 );
+
 
 
 /* ---------------------------------------------------- */
-/* UPDATE API											*/
+/* GET UPDATE API IF NEED   							*/
 /* ---------------------------------------------------- */
 $yp_part_of_theme = get_site_option( 'YP_PART_OF_THEME' );
-if(defined("WTFV") == true && empty($yp_part_of_theme) == true){
+if($currentVersion == 'pro' && empty($yp_part_of_theme) == true){
 
-	// Clean version number
+	// Get Version
 	function yp_version($v){
 	    $v = preg_replace('/[^0-9]/s', '', $v);
 	    if(strlen($v) == 2){
@@ -158,26 +166,34 @@ if(defined("WTFV") == true && empty($yp_part_of_theme) == true){
 		require_once(ABSPATH .'wp-admin/includes/plugin.php');
 	}
 
-	// Plugin version
+	// Get Plugin Version
 	$yp_plugin_data = get_plugin_data( __FILE__ );
 	define("YP_PLUGIN_VERSION",yp_version($yp_plugin_data['Version']));
 
-	// include update api.
+	// Include Update Api.
 	require_once(WT_PLUGIN_DIR.'/library/php/update-api.php');
 	
 }
 
 
+
+/* ---------------------------------------------------- */
+/* Get Font Families   									*/
+/* ---------------------------------------------------- */
 function yp_load_fonts(){
 	$css = yp_get_css(true);
-	yp_get_font_families($css);
+	yp_get_font_families($css,null);
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Getting font familys by CSS OUTPUT					*/
+/* Getting font Families By CSS OUTPUT					*/
 /* ---------------------------------------------------- */
-function yp_get_font_families($css){
+// Type null = 'wp_enqueue_style'
+// Type import = 'import'
+// Type = wp_enqueue_style OR return @import CSS
+function yp_get_font_families($css,$type){
 	
 	$protocol = is_ssl() ? 'https' : 'http';
 	
@@ -186,6 +202,8 @@ function yp_get_font_families($css){
 	foreach($r['1'] as &$k){
 		$k = yp_font_name($k);
 	}
+
+	$importArray = array();
 	
 	foreach(array_unique($r['1']) as $family){
 		
@@ -202,35 +220,58 @@ function yp_get_font_families($css){
 		}
 
 		// Getting fonts from google api.
-		wp_enqueue_style($id, esc_url(''.$protocol.'://fonts.googleapis.com/css?family='.$family.':300,300italic,400,400italic,500,500italic,600,600italic,700,700italic'));	
+		if($type == null){
+			wp_enqueue_style($id, esc_url(''.$protocol.'://fonts.googleapis.com/css?family='.$family.':300,300italic,400,400italic,500,500italic,600,600italic,700,700italic'));
+		}else{
+			array_push($importArray,esc_url(''.$protocol.'://fonts.googleapis.com/css?family='.$family.':300,300italic,400,400italic,500,500italic,600,600italic,700,700italic'));
+		}
 		
 	}
+
+	if($type != null){
+		return $importArray;
+	}
 	
 }
 
 
 
 /* ---------------------------------------------------- */
-/* Getting Only Font Name From CSS Source				*/
+/* Finding Font Names From CSS data     				*/
 /* ---------------------------------------------------- */
-function yp_font_name($k){
+function yp_font_name($a){
 	
-	$k = str_replace("font-family:","",$k);
+	$a = str_replace(
+
+		array(
+
+			"font-family:",
+			'"',
+			"'",
+			" ",
+			"+!important",
+			"!important",
+
+		),
+
+		array(
+
+			"",
+			"",
+			"",
+			"+",
+			"",
+			"",
+
+		),
+
+	$a);
 	
-	$k = str_replace('"',"",$k);
-	$k = str_replace("'","",$k);
-	
-	$k = str_replace(" ","+",$k);
-	
-	$k = str_replace("+!important","",$k);
-	
-	$k = str_replace("!important","",$k);
-	
-	if(strstr($k,",")){
-		$array = explode(",",$k);
+	if(strstr($a,",")){
+		$array = explode(",",$a);
 		return $array[0];
 	}else{
-		return $k;
+		return $a;
 	}
 
 }
@@ -238,7 +279,7 @@ function yp_font_name($k){
 
 
 /* ---------------------------------------------------- */
-/* Checking true or false								*/
+/* Checking current user can or not						*/
 /* ---------------------------------------------------- */
 function yp_check_let(){
 	
@@ -257,8 +298,9 @@ function yp_check_let(){
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Checking true or false								*/
+/* Checking current user can or not (FOR FRAME)			*/
 /* ---------------------------------------------------- */
 function yp_check_let_frame(){
 	
@@ -278,6 +320,9 @@ function yp_check_let_frame(){
 
 
 
+/* ---------------------------------------------------- */
+/* Getting Last Post Title 								*/
+/* ---------------------------------------------------- */
 function yp_getting_last_post_title(){
 	$last = wp_get_recent_posts(array("numberposts" => 1,"post_status" => "publish"));
 
@@ -298,19 +343,22 @@ function yp_getting_last_post_title(){
 
 }
 
-// Clean protocol
+
+
+/* ---------------------------------------------------- */
+/* Clean protocol from URL 								*/
+/* ---------------------------------------------------- */
 function yp_urlencode($v){
 	$v = explode("://",urldecode($v));
 	return urlencode($v[1]);
 }
 
 
+
 /* ---------------------------------------------------- */
 /* Register Admin Script								*/
 /* ---------------------------------------------------- */
 function yp_enqueue_admin_pages($hook){
-
-	wp_enqueue_style( 'wp-color-picker' ); 
 
 	// Options page.
 	if('settings_page_yp-options' == $hook){
@@ -324,10 +372,20 @@ function yp_enqueue_admin_pages($hook){
 		}
     }
 
+    global $currentVersion;
+    global $pro_exists;
+    $trialEnd = get_option('yp_activate_free_trial_end');
+
+    // admin deactivate popup
+    if ( 'plugins.php' == $hook && $trialEnd != 'true' && $currentVersion == 'lite' && $pro_exists == false) {
+        wp_enqueue_script('yellow-pencil-deactivate-popup', plugins_url( 'js/deactivate-popup.js' , __FILE__ ), 'jquery', '1.0', TRUE);
+    }
+
     // Admin css
     wp_enqueue_style('yellow-pencil-admin', plugins_url( 'css/admin.css' , __FILE__ ));
 	
 }
+
 add_action( 'admin_enqueue_scripts', 'yp_enqueue_admin_pages' );
 
 
@@ -341,8 +399,9 @@ function yp_styles_frame() {
 	$protocol = is_ssl() ? 'https' : 'http';
 
 	// Google web fonts.
-	wp_enqueue_style('yellow-pencil-font', ''.$protocol.'://fonts.googleapis.com/css?family=Open+Sans:400,600,800');	
-	
+	wp_enqueue_style('yellow-pencil-font', ''.$protocol.'://fonts.googleapis.com/css?family=Open+Sans:400,600,800');
+
+	// Frame styles
 	wp_enqueue_style('yellow-pencil-frame', plugins_url( 'css/frame.css' , __FILE__ ));
 	
 	// animate library.
@@ -357,7 +416,7 @@ function yp_styles_frame() {
 /* Adding Link To Admin Appearance Menu					*/
 /* ---------------------------------------------------- */
 function yp_menu() {
-	add_theme_page('Yellow Pencil', 'Yellow Pencil', 'edit_theme_options', 'yellow-pencil', 'yp_menu_function',999);
+	add_theme_page('Yellow Pencil Editor', 'Yellow Pencil Editor', 'edit_theme_options', 'yellow-pencil', 'yp_menu_function',999);
 }
 
 
@@ -389,6 +448,10 @@ function yp_menu_function(){
 add_action('admin_menu', 'yp_menu');
 
 
+
+/* ---------------------------------------------------- */
+/* Sub string after 18chars								*/
+/* ---------------------------------------------------- */
 function yp_get_short_title($title){
 
 	$title = ucfirst(strip_tags($title));
@@ -405,6 +468,11 @@ function yp_get_short_title($title){
 
 }
 
+
+
+/* ---------------------------------------------------- */
+/* Getting All Title For Tooltip						*/
+/* ---------------------------------------------------- */
 function yp_get_long_tooltip_title($title){
 
 	$title = ucfirst(strip_tags($title));
@@ -420,8 +488,9 @@ function yp_get_long_tooltip_title($title){
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Register Yellow Pencil 								*/
+/* Register Yellow Pencil Panel							*/
 /* ---------------------------------------------------- */
 function yp_yellow_penci_bar() {
 
@@ -440,13 +509,13 @@ function yp_yellow_penci_bar() {
     echo "<div class='yp-select-bar yp-disable-cancel'>
 		<div class='yp-editor-top'>
 		
-			<a href='".esc_url($_GET['href'])."' class='wf-close-btn-link'><span data-toggle='tooltip' data-placement='left' title='".__('Close Editor','yp')."' class='dashicons dashicons-no-alt yp-close-btn'></span></a>
+			<a href='".esc_url($_GET['href'])."' class='wf-close-btn-link'><span data-toggle='tooltip' data-placement='left' title='".__('Close Editor','yp')."' class='yp-close-btn'></span></a>
 
 			<a class='yp-button yp-save-btn'>".__('Save','yp')."</a>
 
-			<a data-toggle='tooltip' data-placement='bottom' title='".__('Reset Changes','yp')."' class='yp-button-reset'></a>
+			<a data-toggle='tooltipTopBottom' data-placement='bottom' title='".__('Reset Changes','yp')."' class='yp-button-reset'></a>
 
-			<a target='_blank' data-href='".$liveLink."' data-toggle='tooltip' data-placement='bottom' title='".__('Live Preview','yp')."' class='yp-button-live'></a>
+			<a target='_blank' data-href='".$liveLink."' data-toggle='tooltipTopBottom' data-placement='bottom' title='".__('Live Preview','yp')."' class='yp-button-live'></a>
 			
 			<div class='yp-clearfix'></div>
 			
@@ -519,7 +588,7 @@ function yp_yellow_penci_bar() {
 		}
 
 		// if is global, try to add current page to global section.
-		if(isset($_GET['yp_id']) == false && isset($_GET['yp_type']) == false){
+		if(isset($_GET['yp_id']) == false && isset($_GET['yp_type']) == false && $editingHas == 0){
 
 			$postid = url_to_postid(esc_url($_GET['href']));
 
@@ -698,6 +767,17 @@ function yp_yellow_penci_bar() {
 		$all_singles .= '<li'.$active.' id="author-page-btn"><a href="'.esc_url($url).'">'.__("Author","yp").'</a></li>';
 
 
+
+		// WordPress Panel
+		$url = add_query_arg(array('href' => yp_urlencode(esc_url(get_dashboard_url())).'&yp_type=wordpress_panel'),$yellow_pencil_uri);
+		$active = '';
+		if(substr_count($current_url, 'yp_type=wordpress_panel') >= 1){
+			$active = ' class="active" ';
+			$editingHas = '1';
+			$all_singles .= '<li'.$active.' id="wordpress-panel-btn"><a href="'.esc_url($url).'">'.__("WordPress Panel","yp").'</a></li>';
+		}
+
+
 		// Home Page.
 		$frontpage_id = get_option('page_on_front');
 		if($frontpage_id == 0 || $frontpage_id == null){
@@ -823,6 +903,7 @@ function yp_yellow_penci_bar() {
 }
 
 
+
 /* ---------------------------------------------------- */
 /* Getting Custom Animations Codes						*/
 /* ---------------------------------------------------- */
@@ -832,7 +913,11 @@ function yp_get_custom_animations(){
 	foreach($all_options as $name => $value){
 		if(stristr($name, 'yp_anim')){
 
-			echo '<style id="yp-animate-'.strtolower(str_replace("yp_anim_","",$name)).'">'.stripslashes(yp_css_prefix($value)).str_replace("keyframes", "-webkit-keyframes", stripslashes(yp_css_prefix($value))).'</style>';
+			// Get animations
+			$value = stripslashes(yp_css_prefix($value));
+    		$value = preg_replace('/\s+|\t/',' ',$value);
+
+			echo "\n".'<style id="yp-animate-'.strtolower(str_replace("yp_anim_","",$name)).'">'."\n".''.$value."\n".str_replace("keyframes", "-webkit-keyframes", $value).''."\n".'</style>';
 
 		}
 	}
@@ -840,22 +925,22 @@ function yp_get_custom_animations(){
 }
 
 
+
 /* ---------------------------------------------------- */
 /* Getting CSS Codes									*/
 /* ---------------------------------------------------- */
 /*
-	
-	yp_get_css(false) : echo output CSS
-	yp_get_css(true) : return just CSS Codes.
-
+	yp get css(false) : echo output CSS
+	yp get css(true) : return just CSS Codes.
 */
 function yp_get_css($r = false){
 	
 	global $post;
 	
 	$return = '<style id="yellow-pencil">';
+	$return .= "\r\n/*\r\n\tFollowing CSS Codes Generated By Yellow Pencil Editor.\r\n\thttp://waspthemes.com/yellow-pencil\r\n*/\r\n\r\n";
+
 	$onlyCSS = '';
-	
 	$get_type_option = '';
 	$get_post_meta = '';
 	
@@ -891,7 +976,7 @@ function yp_get_css($r = false){
 	}
 	
 	if(empty($get_option) == false){
-		$return .= "\r\n/* CSS Created By Yellow Pencil Plugin */ \r\n".$get_option;
+		$return .= $get_option;
 		$onlyCSS .= $get_option;
 	}
 	
@@ -928,10 +1013,10 @@ function yp_get_css($r = false){
 		$onlyCSS .= get_option("wt_home_css");
 	}
 	
-	$return .= '</style>';
+	$return .= "\n".'</style>';
 	
 	
-	if($return != '<style id="yellow-pencil"></style>' && $r == false){
+	if($return != "<style id=\"yellow-pencil\">\r\n/*\r\n\tFollowing CSS Codes Generated By Yellow Pencil Editor.\r\n\thttp://waspthemes.com/yellow-pencil\r\n*/\r\n\r\n\n</style>" && $r == false){
 		echo stripslashes(yp_css_prefix(yp_animation_prefix(yp_hover_focus_match($return))));
 	}
 	
@@ -941,19 +1026,36 @@ function yp_get_css($r = false){
 	
 }
 
-// Don't load if editor page.
-if(isset($_GET['yellow_pencil_frame']) == false && isset($_GET['yp_live_preview']) == false){
-	add_action('wp_head','yp_get_css',9999);
+
+// If is dynamic inline.
+if(get_option('yp-output-option') != 'external'){
+
+	// Adding all CSS codes to WP Head if not live preview and editor page.
+	if(isset($_GET['yellow_pencil_frame']) == false && isset($_GET['yp_live_preview']) == false){
+		add_action('wp_head','yp_get_css',9999);
+	}
+
+	// Adding all CSS animations to WP Head.
+	if(isset($_GET['yellow_pencil_frame']) == false){
+		add_action('wp_head','yp_get_custom_animations',9999);
+	}
+
 }
 
-// Adding custom animations.
-if(isset($_GET['yellow_pencil_frame']) == false){
+
+// Adding all CSS animations to WP Head.
+if(isset($_GET['yp_live_preview']) == true && get_option('yp-output-option') == 'external'){
 	add_action('wp_head','yp_get_custom_animations',9999);
 }
 
 
+
+/* ---------------------------------------------------- */
+/* Getting Live Preview CSS								*/
+/* ---------------------------------------------------- */
 function yp_get_live_css(){
 
+	// Get recent generated CSS codes.
 	$css = get_option('yp_live_view_css_data');
 
 	if(empty($css)){
@@ -965,12 +1067,20 @@ function yp_get_live_css(){
 }
 
 
+
+/* ---------------------------------------------------- */
+/* Getting fonts for live preview						*/
+/* ---------------------------------------------------- */
 function yp_load_fonts_for_live(){
 	$css = yp_get_live_css();
-	yp_get_font_families($css);
+	yp_get_font_families($css,null);
 }
 
-// Get live preview.
+
+
+/* ---------------------------------------------------- */
+/* Generating Live Preview data 						*/
+/* ---------------------------------------------------- */
 function yp_get_live_preview(){
 
 	$css = yp_get_live_css();
@@ -987,10 +1097,16 @@ function yp_get_live_preview(){
 
 }
 
-// Live preview
+
+
+/* ---------------------------------------------------- */
+/* Adding generated live preview CSS data To WP HEAD	*/
+/* ---------------------------------------------------- */
 if(isset($_GET['yp_live_preview']) == true){
+
 	add_action('wp_head','yp_get_css_backend',9999);
 	add_action('wp_head','yp_get_live_preview',9999);
+
 }
 
 
@@ -1007,13 +1123,11 @@ function yp_hover_focus_match($data){
 	preg_match_all('@body.yp-selector-(.*?){@si',$data,$keys);
 	
 	foreach($keys[1] as $key){
-		$dir = 'body.yp-selector-'.$key;
 
-		
+		$dir = 'body.yp-selector-'.$key;
 		$dirt = 'body.yp-selector-'.$key.':'.substr($key, 0, 5);		
 		
-		$dirt = str_replace('body.yp-selector-hover','body',$dirt);
-		$dirt = str_replace('body.yp-selector-focus','body',$dirt);
+		$dirt = str_replace(array('body.yp-selector-hover','body.yp-selector-focus'),array('body','body'),$dirt);
 		$data = (str_replace($dir,$dirt,$data));
 	}
 	
@@ -1030,7 +1144,7 @@ function yp_hover_focus_match($data){
 /* ---------------------------------------------------- */
 function yp_css_prefix($outputCSS){
 	
-	$outputCSS = preg_replace('@-webkit-(.*?):(.*?);@si',"",$outputCSS);
+	$outputCSS = preg_replace('@\t-webkit-(.*?):(.*?);@si',"",$outputCSS);
 
 	// Adding automatic prefix to output CSS.
 	$CSSPrefix = array(
@@ -1050,7 +1164,7 @@ function yp_css_prefix($outputCSS){
 	);
 		
 	foreach($CSSPrefix as $prefix){
-		$outputCSS = preg_replace('@'.$prefix.':(.*?);@si',"".$prefix.":$1;\r	-moz-".$prefix.":$1;\r	-webkit-".$prefix.":$1;",$outputCSS);
+		$outputCSS = preg_replace('@'.$prefix.':([^\{]+);@U',"".$prefix.":$1;\r	-moz-".$prefix.":$1;\r	-webkit-".$prefix.":$1;",$outputCSS);
 	}
 	
 	return $outputCSS;
@@ -1058,41 +1172,84 @@ function yp_css_prefix($outputCSS){
 }
 
 
+
 /* ---------------------------------------------------- */
 /* Prefix for Animations								*/
 /* ---------------------------------------------------- */
 function yp_animation_prefix($outputCSS){
 	
-	$outputCSS = str_replace(".yp_focus:focus",":focus",$outputCSS);
-	$outputCSS = str_replace(".yp_focus:hover",":focus",$outputCSS);
+	return str_replace(
+
+		array(
+
+			".yp_focus:focus",
+			".yp_focus:hover",
+			".yp_hover:hover",
+			".yp_hover:focus",
+			".yp_onscreen:hover",
+			".yp_onscreen:focus",
+			".yp_click:hover",
+			".yp_click:focus",
+			".yp_hover",
+			".yp_focus"
+
+		),
+
+		array(
+
+			":focus",":focus",
+			":hover",":hover",
+			".yp_onscreen",".yp_onscreen",
+			".yp_click",".yp_click",
+			":hover",
+			":focus"
+
+		),$outputCSS);
 		
-	$outputCSS = str_replace(".yp_hover:hover",":hover",$outputCSS);
-	$outputCSS = str_replace(".yp_hover:focus",":hover",$outputCSS);
-		
-	$outputCSS = str_replace(".yp_onscreen:hover",".yp_onscreen",$outputCSS);
-	$outputCSS = str_replace(".yp_onscreen:focus",".yp_onscreen",$outputCSS);
-		
-	$outputCSS = str_replace(".yp_click:hover",".yp_click",$outputCSS);
-	$outputCSS = str_replace(".yp_click:focus",".yp_click",$outputCSS);
+}
+
+
+
+/* ---------------------------------------------------- */
+/* Prefix for Animations EXPORT							*/
+/* ---------------------------------------------------- */
+function yp_export_animation_prefix($outputCSS){
 	
-	$outputCSS = str_replace(".yp_hover",":hover",$outputCSS);
-	$outputCSS = str_replace(".yp_focus",":focus",$outputCSS);
-	
-	return $outputCSS;
+	return str_replace(
+
+		array(
+
+			".yp_onscreen",
+			".yp_click",
+			".yp_hover",
+			".yp_focus"
+
+		),
+
+		array(
+			
+			"",
+			".yp_click",
+			":hover",
+			":focus"
+
+		),$outputCSS);
 	
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Adding no-index meta to head for demo mode.			*/
+/* Adding no-index meta to head for demo mode YP Links!	*/
 /* ---------------------------------------------------- */
 function yp_head_meta(){
 	echo '<meta name="robots" content="noindex">' . "\n";
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Showing CSS data	Backend								*/
+/* Getting CSS data	for Backend							*/
 /* ---------------------------------------------------- */
 function yp_get_css_backend(){
 	
@@ -1111,7 +1268,7 @@ function yp_get_css_backend(){
 	$id_is = isset($_GET['yp_id']);
 	$type_is = isset($_GET['yp_type']);
 	
-	$return = '<style>';
+	$return = '<style id="yellow-pencil-backend">';
 	
 	$get_option = get_option("wt_css");
 	if($id != null){
@@ -1179,13 +1336,17 @@ function yp_get_css_backend(){
 	$return .= '</style>';
 	
 	
-	if($return != '<style></style>'){
+	if($return != '<style id="yellow-pencil-backend"></style>'){
 		echo stripslashes($return);
 	}
 	
 }
 
 
+
+/* ---------------------------------------------------- */
+/* Adding other CSS Data to Editor frame				*/
+/* ---------------------------------------------------- */
 if(isset($_GET['yellow_pencil_frame']) == true){
 	add_action('wp_head','yp_get_css_backend',9998);
 	add_action('wp_head','yp_head_meta');
@@ -1193,10 +1354,9 @@ if(isset($_GET['yellow_pencil_frame']) == true){
 
 
 
-
-/* ---------------------------------------------------- */
-/* Backend CSS Codes									*/
-/* ---------------------------------------------------- */
+/* ------------------------------------------------------------------- */
+/* Other CSS Codes (All CSS Codes excluding current editing type CSS)  */
+/* ------------------------------------------------------------------- */
 function yp_editor_styles(){
 		
 	global $post;
@@ -1217,6 +1377,7 @@ function yp_editor_styles(){
 	$return = '<div class="yp-styles-area">';
 	
 	$get_option = get_option("wt_styles");
+
 	if($id != null){
 		$get_type_option = get_option("wt_".get_post_type($id)."_styles");
 		$get_post_meta = get_post_meta($id, '_wt_styles', true);
@@ -1274,6 +1435,10 @@ function yp_editor_styles(){
 			$return .= get_option("wt_home_styles");
 		}
 
+		if($type == 'wordpress_panel'){
+			$return .= get_option("wt_wordpress_panel_styles");
+		}
+
 
 	}
 
@@ -1294,10 +1459,15 @@ function yp_editor_styles(){
 	
 }
 
-// Load just if editor page.
+
+
+/* ---------------------------------------------------- */
+/* Adding styles to Editor 								*/
+/* ---------------------------------------------------- */
 if(isset($_GET['yellow_pencil_frame']) == true){
 	add_action('wp_footer','yp_editor_styles');
 }
+
 
 
 
@@ -1307,8 +1477,10 @@ if(isset($_GET['yellow_pencil_frame']) == true){
 include_once( WT_PLUGIN_DIR . 'base.php' );
 
 
+
+
 /*-------------------------------------------------------*/
-/*	Ajax Save											 */
+/*	Ajax Preview Save CallBack							 */
 /*-------------------------------------------------------*/
 function yp_preview_data_save(){
 	
@@ -1329,12 +1501,57 @@ function yp_preview_data_save(){
 add_action( 'wp_ajax_yp_preview_data_save', 'yp_preview_data_save' );
 
 
+
 /*-------------------------------------------------------*/
-/*	Ajax Save											 */
+/*	Creating an Custom.css file (Static)				 */
+/*-------------------------------------------------------*/
+function yp_create_custom_css($data){
+
+	// Revisions
+	$rev = get_option('yp_revisions');
+
+	if($rev == false){$rev = 700;}
+
+	// Delete old revision if exists.
+	if(file_exists(WT_PLUGIN_DIR . 'custom-'.($rev-1).'.css')){
+		unlink(WT_PLUGIN_DIR . 'custom-'.($rev-1).'.css');
+	}
+
+	// get the upload directory and make a test.txt file
+	$filename = WT_PLUGIN_DIR . 'custom-'.$rev.'.css';
+		
+	// by this point, the $wp_filesystem global should be working, so let's use it to create a file
+	global $wp_filesystem;
+
+	// Initialize the WP filesystem, no more using 'file-put-contents' function
+	if (empty($wp_filesystem)){
+		require_once (ABSPATH . '/wp-admin/includes/file.php');
+		WP_Filesystem();
+	}
+
+	if (!$wp_filesystem->put_contents($filename, $data, FS_CHMOD_FILE)){
+		echo 'error saving file!';
+	}
+
+}
+
+
+/*-------------------------------------------------------*/
+/*	Ajax Real Save Callback								 */
 /*-------------------------------------------------------*/
 function yp_ajax_save(){
 	
 	if(current_user_can("edit_theme_options") == true){
+
+		// Revisions
+		$currentRevision = get_option('yp_revisions');
+
+		// Update revision.
+		if($currentRevision != false){
+			update_option('yp_revisions', $currentRevision + 1);
+		}else{
+			add_option('yp_revisions',"1");
+		}
 
 		$css = wp_strip_all_tags($_POST['yp_data']);
 		
@@ -1344,7 +1561,6 @@ function yp_ajax_save(){
 		$styles = str_replace("YP@|", ">", $styles);
 		
 		$id = '';
-		
 		$type = '';
 		
 		if(isset($_POST['yp_id'])){
@@ -1424,6 +1640,12 @@ function yp_ajax_save(){
 			}
 			
 		}
+
+		// Get All CSS data as ready-to-use
+		$output = yp_get_export_css("create");
+
+		// Update custom.css file
+		yp_create_custom_css($output);
 	
 	}
 	
@@ -1436,15 +1658,16 @@ add_action( 'wp_ajax_yp_ajax_save', 'yp_ajax_save' );
 
 
 /* ---------------------------------------------------- */
-/* Getting arrow icon markup							*/
+/* Arrow icon Markup        							*/
 /* ---------------------------------------------------- */
 function yp_arrow_icon(){
 	return "<span class='dashicons yp-arrow-icon dashicons-arrow-up'></span><span class='dashicons yp-arrow-icon dashicons-arrow-down'></span>";
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Getting theme name or page name						*/
+/* Getting current theme/page name                      */
 /* ---------------------------------------------------- */
 function yp_customizer_name(){
 	
@@ -1473,6 +1696,8 @@ function yp_customizer_name(){
 		
 		if($type == 'Page' || $type == 'Author' || $type == 'Search' || $type == '404' || $type == 'Category'){
 			$title = ''.$type.' '.__("Template","yp").'';
+		}elseif($type == 'Wordpress_panel'){
+			$title = 'WordPress Panel';
 		}else{
 			$title = ''.__("Single","yp").' '.$type.' '.__("Template","yp").'';
 		}
@@ -1514,21 +1739,21 @@ function yp_customizer_name(){
 
 
 /* ---------------------------------------------------- */
-/* Adding style for wp-admin-bar						*/
+/* Adding helper style for wp-admin-bar					*/
 /* ---------------------------------------------------- */
 function yp_yellow_pencil_style() {
   echo '<style>#wp-admin-bar-yellow-pencil > .ab-item:before{content: "\f309";top:2px;}#wp-admin-bar-yp-update .ab-item:before{content: "\f316";top:3px;}</style>';
 }
 
 
-
 /* ---------------------------------------------------- */
-/* Adding link to wp-admin-bar							*/
+/* Adding menu to wp-admin-bar							*/
 /* ---------------------------------------------------- */
 function yp_yellow_pencil_edit_admin_bar( $wp_admin_bar ){
 	
 	$id = null;
 	global $wp_query;
+	global $wp;
 	$yellow_pencil_uri = yp_uri();
 	
 	if(isset($_GET['page_id'])){
@@ -1593,23 +1818,27 @@ function yp_yellow_pencil_edit_admin_bar( $wp_admin_bar ){
 	}
 
 	if(class_exists( 'WooCommerce' )){
+
 		if(is_shop()){
 			$id = wc_get_page_id('shop');
 			$status = __('Page','yp');
 			$key = 'page';
 			$go_link = esc_url(get_permalink($id));
 		}
+		
+		if(is_product_category() || is_product_tag()){
+			$id = null;
+			$go_link = add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request ) );
+		}
+
 	}
 
 	if($go_link == ''){
-		global $wp;
 		$key = '';
 		$go_link = add_query_arg($wp->query_string, '', home_url( $wp->request ));
 	}
 
-	
-
-	// fix a small bug.
+	// null if zero.
 	if($id == 0){
 		$id = null;
 	}
@@ -1668,8 +1897,8 @@ function yp_yellow_pencil_edit_admin_bar( $wp_admin_bar ){
 		
 	}
 		
-	// Add to wpadminbar
-	for($a=0;$a<sizeOf($args);$a++){
+	// Add to Wp Admin Bar
+	for($a = 0;$a < sizeOf($args); $a++){
 		$wp_admin_bar->add_node($args[$a]);
 	}
 	
@@ -1677,8 +1906,30 @@ function yp_yellow_pencil_edit_admin_bar( $wp_admin_bar ){
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Adding body class									*/
+/* Adding menu to wp-admin-bar							*/
+/* ---------------------------------------------------- */
+function yp_yellow_pencil_edit_admin_panel_bar( $wp_admin_bar ){
+	
+	$yellow_pencil_uri = yp_uri();
+
+	$args = array(
+		'id'    => 'yellow-pencil',
+		'title'		=>	__("Edit Panel With Yellow Pencil",'yp'),
+		'href'		=>	add_query_arg(array('href' => yp_urlencode(get_dashboard_url()), 'yp_type' =>  "wordpress_panel"),$yellow_pencil_uri),
+		'meta'  => array( 'class' => 'yellow-pencil' )
+	);
+
+	$wp_admin_bar->add_node( $args );
+
+
+}
+
+
+
+/* ---------------------------------------------------- */
+/* Adding Body Classes									*/
 /* ---------------------------------------------------- */
 function yp_body_class($classes) {
 	
@@ -1703,16 +1954,19 @@ function yp_body_class($classes) {
 }
 
 
+
 /* ---------------------------------------------------- */
 /* Install the plugin									*/
 /* ---------------------------------------------------- */
 function yp_init(){
 	
+
 	// See Developer Documentation for more info.
 	if(defined("WT_DEMO_MODE")){
 		include( WT_PLUGIN_DIR . 'demo_mode.php' );
 	}
 	
+
 	// Iframe Settings.
 	// Disable admin bar in iframe
 	// Add Classes to iframe body.
@@ -1723,12 +1977,14 @@ function yp_init(){
 		add_action( 'wp_enqueue_scripts', 'yp_styles_frame' );
 	}
 	
+
 	// If yellow pencil is active and theme support;
 	// Adding Link to #wpadminbar.
 	if(yp_check_let()){
 
 		// If not admin page, Add Customizer link.
 		if(is_admin() === false){
+
 			add_action( 'admin_bar_menu', 'yp_yellow_pencil_edit_admin_bar', 999 );
 
 			// Adding CSS helper for admin bar link.
@@ -1737,20 +1993,22 @@ function yp_init(){
 		}
 
 	}
+
 	
 	// Getting Current font families.
-	if(is_admin() === false){
-		add_action('wp_enqueue_scripts','yp_load_fonts');
-	}
+	add_action('wp_enqueue_scripts','yp_load_fonts');
+
 
 	// Live preview
 	if(isset($_GET['yp_live_preview']) == true){
 		add_action('wp_enqueue_scripts','yp_load_fonts_for_live');
 	}
 
+
 }
 
 add_action("init","yp_init");
+
 
 
 
@@ -1770,6 +2028,11 @@ function yp_uploader_style(){
 
 }
 
+
+
+/* ---------------------------------------------------- */
+/* Add action to Admin Head for Uploader Style			*/
+/* ---------------------------------------------------- */
 if(isset($_GET['yp_uploader'])){
 	if($_GET['yp_uploader'] == 1){
 		add_action('admin_head','yp_uploader_style');
@@ -1779,12 +2042,35 @@ if(isset($_GET['yp_uploader'])){
 
 
 /* ---------------------------------------------------- */
+/* 2 Day Free trial 									*/
+/* ---------------------------------------------------- */
+function yp_trial_activate_free() {
+  
+  if(isset($_GET['yp_activate_free_trail'])){
+
+		add_option("yp_activate_free_trial","true");
+		add_option("yp_activate_free_trial_time",time());
+		add_option("yp_activate_free_trial_end","false");
+
+		wp_safe_redirect( add_query_arg( array( 'page' => 'yellow-pencil' ), admin_url( 'themes.php' ) ) );
+
+	}
+
+}
+
+add_action( 'admin_init', 'yp_trial_activate_free' );
+
+
+
+/* ---------------------------------------------------- */
 /* CSS library for Yellow Pencil						*/
 /* ---------------------------------------------------- */
 function yp_register_styles() {
 
+	$css = yp_get_css(true);
+
 	// Animate library.
-	if(strstr(yp_get_css(true),"animation-name:")){
+	if(strstr($css,"animation-name:")){
 		wp_enqueue_style('yellow-pencil-animate', plugins_url( 'library/css/animate.css' , __FILE__ ));
 	}
 
@@ -1798,6 +2084,22 @@ function yp_register_styles() {
 		}
 
 	}
+
+	// Add Custom.css to website.
+	if(isset($_GET['yellow_pencil_frame']) == false && isset($_GET['yp_live_preview']) == false && get_option('yp-output-option') == 'external'){
+
+		// New ref URL parameters on every new update.
+		$rev = get_option('yp_revisions');
+
+		if($rev == false){$rev = 700;}
+
+		// Custom CSS Href
+		$href = add_query_arg( 'revision', $rev, plugins_url( 'custom-'.$rev.'.css' , __FILE__ ));
+		
+		// Add
+		wp_enqueue_style('yp-custom', $href);
+
+	}
 	
 }
 
@@ -1808,26 +2110,38 @@ function yp_register_styles() {
 /* ---------------------------------------------------- */
 function yp_register_scripts() {
 	
-	$outputCSS = yp_get_css(true);
+	$css = yp_get_css(true);
 	$needCSSEngine = false;
-	
-	// Yellow Pencil Library Helper.
-	if(strstr($outputCSS,"animation-name:") == true || isset($_GET['yellow_pencil_frame']) == true || isset($_GET['yp_live_preview']) == true){
+
+	if(strstr($css,"animation-name:") == true || strstr($css,"animation-duration:") == true || strstr($css,"animation-delay:") == true || isset($_GET['yellow_pencil_frame']) == true || isset($_GET['yp_live_preview']) == true){
+
+		// Yellow Pencil Library Helper.
 		wp_enqueue_script('yellow-pencil-library', plugins_url( 'library/js/yellow-pencil-library.js' , __FILE__ ), 'jquery', '1.0', TRUE);
+		
 		$needCSSEngine = true;
+	
 	}
 	
-	// Background Parallax
-	if(strstr($outputCSS,"background-parallax:") == true || isset($_GET['yellow_pencil_frame']) == true || isset($_GET['yp_live_preview']) == true){
+
+	if(strstr($css,"background-parallax:") == true || isset($_GET['yellow_pencil_frame']) == true || isset($_GET['yp_live_preview']) == true){
+
+		// Background Parallax
 		wp_enqueue_script('yellow-pencil-background-parallax', plugins_url( 'library/js/parallax.js' , __FILE__ ), 'jquery', '1.0', TRUE);
+
 		$needCSSEngine = true;
-	}
 	
-	// CSS Engine for special CSS rules.
-	// example: my-css-rule:data("value");
-	if($needCSSEngine == true){
-		wp_enqueue_script('yellow-pencil-css-engine', plugins_url( 'library/js/css-engine.js' , __FILE__ ), 'jquery', '1.0', TRUE);
 	}
+
+
+	if(strstr($css,"background-parallax:") == true || strstr($css,"jquery-") == true || isset($_GET['yellow_pencil_frame']) == true || isset($_GET['yp_live_preview']) == true){
+
+		// CSS Engine for special CSS rules.
+		wp_enqueue_script('yellow-pencil-css-engine', plugins_url( 'library/js/css-engine.js' , __FILE__ ), 'jquery', '1.0', TRUE);
+
+		$needCSSEngine = true;
+	
+	}
+
 	
 	// Jquery
 	if($needCSSEngine == true){
@@ -1835,52 +2149,9 @@ function yp_register_scripts() {
 	}
 	
 }
-add_action( 'wp_enqueue_scripts', 'yp_register_styles' );
-add_action( 'wp_enqueue_scripts', 'yp_register_scripts' );
 
-
-/* ---------------------------------------------------- */
-/* Scripts area for YP									*/
-/* ---------------------------------------------------- */
-function yp_scripts_areas() {
-    
-	if(isset($_GET['yellow_pencil_frame']) == true){
-
-		// Be sure, iframe loaded.
-		echo "<script>window.loadChecker = 0;
-
-		function yp_check_class(element, cls) {
-		    return (' ' + element.className + ' ').indexOf(' ' + cls + ' ') > -1;
-		}
-
-		function yp_check_load(){
-
-			setTimeout(function(){
-
-				if(typeof parent.yellow_pencil_main != 'function'){
-					self.parent.location.reload();
-				}else{
-					if(yp_check_class(document.body,'yp-yellow-pencil-loaded') == false && window.loadChecker == 0){
-						parent.yellow_pencil_main();
-						window.loadChecker = 1;
-					}
-				}
-
-			},50);
-
-		}
-
-		window.onload = yp_check_load();</script>";
-		
-		// script area enough for yellow pencil.
-		for ($i = 1; $i <= 50; $i++) {
-			echo "<script class='yellow-pencil-scripts'></script>\r";
-		}
-		
-	}
-
-}
-add_action( 'wp_footer', 'yp_scripts_areas', 9999);
+add_action( 'wp_enqueue_scripts', 'yp_register_styles',9999);
+add_action( 'wp_enqueue_scripts', 'yp_register_scripts');
 
 
 
@@ -1895,6 +2166,11 @@ function yp_yellow_pencil_editor() {
 
 add_action('admin_menu', 'yp_yellow_pencil_editor');
 
+
+
+/* ---------------------------------------------------- */
+/*  We need an blank page (hack)						*/
+/* ---------------------------------------------------- */
 function yp_editor_func(){
 	
 }
@@ -1904,7 +2180,25 @@ add_action('load-admin_page_yellow-pencil-editor', 'yp_frame_output');
 
 
 /* ---------------------------------------------------- */
-/* Iframe Source 										*/
+/* Custom Action yp_head 								*/
+/* ---------------------------------------------------- */
+function yp_head() {
+    do_action('yp_head');
+}
+
+
+
+/* ---------------------------------------------------- */
+/* Custom Action yp_footer 								*/
+/* ---------------------------------------------------- */
+function yp_footer() {
+    do_action('yp_footer');
+}
+
+
+
+/* ---------------------------------------------------- */
+/* Editor Page Markup 									*/
 /* ---------------------------------------------------- */
 function yp_frame_output(){
 
@@ -1912,474 +2206,10 @@ $protocol = is_ssl() ? 'https' : 'http';
 
 $protocol = $protocol.'://';
 
-?><!DOCTYPE html><html lang="en-US">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-	<meta name="robots" content="noindex">
-	<title>Yellow Pencil</title>
-	<link rel="icon" type="image/ico" href="<?php echo esc_url(plugins_url( 'images/favicon.png' , __FILE__ )); ?>"/>
-	<link rel='stylesheet' href='<?php echo esc_url(includes_url( 'css/dashicons.min.css' , __FILE__ )); ?>' type='text/css' />
-	<link rel='stylesheet' href='<?php echo $protocol; ?>fonts.googleapis.com/css?family=Open+Sans:400,300,600&subset=latin,latin-ext' type='text/css' />
-	<link rel='stylesheet' href='<?php echo esc_url(plugins_url( 'css/contextmenu.css?ver='.YP_VERSION.'' , __FILE__ )); ?>' type='text/css' />
-	<link rel='stylesheet' href='<?php echo esc_url(plugins_url( 'css/nouislider.css?ver='.YP_VERSION.'' , __FILE__ )); ?>' type='text/css' />
-	<link rel='stylesheet' href='<?php echo esc_url(plugins_url( 'css/iris.css?ver='.YP_VERSION.'' , __FILE__ )); ?>' type='text/css' />
-	<link rel='stylesheet' href='<?php echo esc_url(plugins_url( 'css/bootstrap-tooltip.css?ver='.YP_VERSION.'' , __FILE__ )); ?>' type='text/css' />
-	<link rel='stylesheet' href='<?php echo esc_url(plugins_url( 'css/sweetalert.css?ver='.YP_VERSION.'' , __FILE__ )); ?>' type='text/css' />
-	<link rel='stylesheet' href='<?php echo esc_url(plugins_url( 'css/yellow-pencil.css?ver='.YP_VERSION.'' , __FILE__ )); ?>' type='text/css' />	
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/jquery.js' , __FILE__ )); ?>'></script>
-	<script type="text/javascript">
-	var protocol = "<?php if(is_ssl()){echo 'https';}else{echo 'http';} ?>";
-	var ajaxurl = "<?php echo admin_url('admin-ajax.php'); ?>";
-	var siteurl = "<?php echo get_site_url(); ?>";
-	var l18_saving = "<?php _e('Saving','yp'); ?>";
-	var l18_back_to_menu = "<?php _e('Back to menu','yp'); ?>";
-	var l18_close_editor = "<?php _e('Close Editor','yp'); ?>";
-	var l18_saving = "<?php _e('Saving','yp'); ?>";
-	var l18_save = "<?php _e('Save','yp'); ?>";
-	var l18_saved = "<?php _e('Saved','yp'); ?>";
-	var l18_demo_alert = "<?php _e('Saving is disabled in demo mode.','yp'); ?>";
-	var l18_live_preview = "<?php _e('Live preview disabled in demo mode.','yp'); ?>";
-	var l18_clear = "<?php _e('Clear','yp'); ?>";
-	var l18_footer = "<?php _e('Footer','yp'); ?>";
-	var l18_content = "<?php _e('Content','yp'); ?>";
-	var l18_topbar = "<?php _e('Top Bar','yp'); ?>";
-	var l18_simple_title = "<?php _e('Basic selector','yp'); ?>";
-	var l18_clean_selector = "<?php _e('Alternative Class selector','yp'); ?>";
-	var l18_simple_sharp_selector = "<?php _e('Simple selector','yp'); ?>";
-	var l18_sharp_selector = "<?php _e('Sharp selector','yp'); ?>";
+// Editor Markup
+include( WT_PLUGIN_DIR . 'editor.php' );
 
-	var l18_animation_notice = "<?php _e('Animation property not working, please set \'block\' option for display property from extra section.','yp'); ?>";
-	var l18_margin_notice = "<?php _e('Margin property may not work, please set \'block\' or \'inline-block\' option for display property from extra section.','yp'); ?>";
-	var l18_padding_notice = "<?php _e('Padding property may not work, please set \'block\' or \'inline-block\' option for display property from extra section. If work please don\'t care this notice.','yp'); ?>";
-	var l18_border_width_notice = "<?php _e('Border width property must be minimum 1px.','yp'); ?>";
-	var l18_bg_img_notice = "<?php _e('There already have a background image, you must disable background image for background color work.','yp'); ?>";
-	var l18_bg_img_notice_two = "<?php _e('Set a background image for using this feature.','yp'); ?>";
-	var l18_shadow_notice = "<?php _e('You must choose a color for shadow.','yp'); ?>";
-	var l18_border_style_notice = "<?php _e('Border style property is hidden or none, please select solid, dotted or dashed for showing the border.','yp'); ?>";
-	var l18_logo = "<?php _e('Logo','yp'); ?>";
-	var l18_google_map = "<?php _e('Google Map','yp'); ?>";
-	var l18_entry_title_link = "<?php _e('Entry Title Link','yp'); ?>";
-	var l18_category_link = "<?php _e('Category Link','yp'); ?>";
-	var l18_tag_link = "<?php _e('Tag Link','yp'); ?>";
-	var l18_widget = "<?php _e('Widget','yp'); ?>";
-	var l18_font_awesome_icon = "<?php _e('Font Awesome Icon','yp'); ?>";
-	var l18_submit_button = "<?php _e('Submit Button','yp'); ?>";
-	var l18_menu_item = "<?php _e('Menu Item','yp'); ?>";
-	var l18_post_meta_division = "<?php _e('Post Meta Division','yp'); ?>";
-	var l18_comment_reply_title = "<?php _e('Comment Reply Title','yp'); ?>";
-	var l18_login_info = "<?php _e('Login Info','yp'); ?>";
-	var l18_allowed_tags = "<?php _e('Allowed Tags','yp'); ?>";
-	var l18_post_title = "<?php _e('Post Title','yp'); ?>";
-	var l18_comment_form = "<?php _e('Comment Form','yp'); ?>";
-	var l18_widget_title = "<?php _e('Widget title','yp'); ?>";
-	var l18_tag_cloud = "<?php _e('Tag Cloud','yp'); ?>";
-	var l18_row = "<?php _e('Row','yp'); ?>";
-	var l18_button = "<?php _e('Button','yp'); ?>";
-	var l18_lead = "<?php _e('Lead','yp'); ?>";
-	var l18_well = "<?php _e('Well','yp'); ?>";
-	var l18_accordion_toggle = "<?php _e('Accordion Toggle','yp'); ?>";
-	var l18_accordion_content = "<?php _e('Accordion Content','yp'); ?>";
-	var l18_alert_division = "<?php _e('Alert Division','yp'); ?>";
-	var l18_footer_content = "<?php _e('Footer Content','yp'); ?>";
-	var l18_global_section = "<?php _e('Section','yp'); ?>";
-	var l18_menu_link = "<?php _e('Menu Link','yp'); ?>";
-	var l18_submenu = "<?php _e('Sub Menu','yp'); ?>";
-	var l18_show_more_link = "<?php _e('Show More Link','yp'); ?>";
-	var l18_wrapper = "<?php _e('Wrapper','yp'); ?>";
-	var l18_article_title = "<?php _e('Article title','yp'); ?>";
-	var l18_column = "<?php _e('Column','yp'); ?>";
-	var l18_post_division = "<?php _e('Post Division','yp'); ?>";
-	var l18_content_division = "<?php _e('Content Division','yp'); ?>";
-	var l18_entry_title = "<?php _e('Entry Title','yp'); ?>";
-	var l18_entry_content = "<?php _e('Entry Content','yp'); ?>";
-	var l18_entry_footer = "<?php _e('Entry Footer','yp'); ?>";
-	var l18_entry_header = "<?php _e('Entry Header','yp'); ?>";
-	var l18_enter_time = "<?php _e('Entry Time','yp'); ?>";
-	var l18_post_edit_link = "<?php _e('Post Edit Link','yp'); ?>";
-	var l18_post_thumbnail = "<?php _e('Post Thumbnail','yp'); ?>";
-	var l18_thumbnail = "<?php _e('Thumbnail','yp'); ?>";
-	var l18_thumbnail_image = "<?php _e('Thumbnail Image','yp'); ?>";
-	var l18_edit_link = "<?php _e('Edit Link','yp'); ?>";
-	var l18_comments_link_division = "<?php _e('Comments Link Division','yp'); ?>";
-	var l18_site_description = "<?php _e('Site Description','yp'); ?>";
-	var l18_post_break = "<?php _e('Post Break','yp'); ?>";
-	var l18_paragraph = "<?php _e('Paragraph','yp'); ?>";
-	var l18_line_break = "<?php _e('Line Break','yp'); ?>";
-	var l18_horizontal_rule = "<?php _e('Horizontal Rule','yp'); ?>";
-	var l18_link = "<?php _e('Link','yp'); ?>";
-	var l18_list_item = "<?php _e('List Item','yp'); ?>";
-	var l18_unorganized_list = "<?php _e('Unorganized List','yp'); ?>";
-	var l18_image = "<?php _e('Image','yp'); ?>"; 
-	var l18_bold_tag = "<?php _e('Bold Tag','yp'); ?>";
-	var l18_italic_tag = "<?php _e('Italic Tag','yp'); ?>";
-	var l18_strong_tag = "<?php _e('Strong Tag','yp'); ?>";
-	var l18_blockquote = "<?php _e('Block Quote','yp'); ?>";
-	var l18_preformatted = "<?php _e('Preformatted','yp'); ?>";
-	var l18_table = "<?php _e('Table','yp'); ?>";
-	var l18_table_row = "<?php _e('Table Row','yp'); ?>";
-	var l18_table_data = "<?php _e('Table Data','yp'); ?>";
-	var l18_header_division = "<?php _e('Header Division','yp'); ?>";
-	var l18_footer_division = "<?php _e('Footer Division','yp'); ?>";
-	var l18_section = "<?php _e('Section','yp'); ?>";
-	var l18_form_division = "<?php _e('Form Division','yp'); ?>";
-	var l18_centred_block = "<?php _e('Centred block','yp'); ?>";
-	var l18_definition_list = "<?php _e('Definition list','yp'); ?>";
-	var l18_definition_term = "<?php _e('Definition term','yp'); ?>";
-	var l18_definition_description = "<?php _e('Definition description','yp'); ?>";
-	var l18_header = "<?php _e('Header','yp'); ?>";
-	var l18_level = "<?php _e('Level','yp'); ?>";
-	var l18_smaller_text = "<?php _e('Smaller text','yp'); ?>";
-	var l18_text_area = "<?php _e('Text Area','yp'); ?>";
-	var l18_body_of_table = "<?php _e('Body Of Table','yp'); ?>";
-	var l18_head_of_table = "<?php _e('Head Of Table','yp'); ?>";
-	var l18_foot_of_table = "<?php _e('Foot of table','yp'); ?>";
-	var l18_underline_text = "<?php _e('Underline text','yp'); ?>";
-	var l18_span = "<?php _e('Span','yp'); ?>";
-	var l18_quotation = "<?php _e('Quotation','yp'); ?>";
-	var l18_citation = "<?php _e('Citation','yp'); ?>";
-	var l18_expract_of_code = "<?php _e('Extract of code','yp'); ?>";
-	var l18_navigation = "<?php _e('Navigation','yp'); ?>";
-	var l18_label = "<?php _e('Label','yp'); ?>";
-	var l18_time = "<?php _e('Time','yp'); ?>";
-	var l18_division = "<?php _e('Division','yp'); ?>";
-	var l18_caption_of_table = "<?php _e('Caption Of table','yp'); ?>";
-	var l18_input = "<?php _e('Input','yp'); ?>";
-	var l18_sure = "<?php _e('Are you sure you want to leave the page without saving?','yp'); ?>";
-	var l18_reset = "<?php _e('Do you want reset current options?','yp'); ?>";
-	var l18_process = "<?php _e('CSS styles are processing. Please be patient and wait until process end.','yp'); ?>";
-	var l18_cantUndo = "<?php _e('You can\'t undo the changes while creating a new animation. Click \"eye icon\" if you want to disable any option.','yp'); ?>";
-	var l18_cantUndoAnimManager = "<?php _e('You can\'t undo the changes while animation manager on.','yp'); ?>";
-	var l18_cantEditor = "<?php _e('You can\'t use the CSS editor while creating a new animation.','yp'); ?>";
-	var l18_allScenesEmpty = "<?php _e('All scenes are empty.','yp'); ?>";
-
-	var l18_create = "<?php _e('Create','yp'); ?>";
-	var l18_CreateAnimate = "<?php _e('Create New Animation','yp'); ?>";
-	var l18_cancel = "<?php _e('Cancel','yp'); ?>";
-	var l18_scene = "<?php _e('SCENE','yp'); ?>";
-	var l18_closeAnim = "<?php _e('Do you want to close animation creator?','yp'); ?>";
-	var l18_setAnimName = "<?php _e('Please set animation name for creating.','yp'); ?>";
-	var l18_animExits = "<?php _e('This animation name already exists, please try another one.','yp'); ?>";
-	var l18_notjustit = "<?php _e('Not possible, Can\'t select just this element. Please add a custom id or class to this element.','yp'); ?>";
-
-	var l18_notice = "<i class='yp-notice-icon'></i><?php _e('Notice','yp'); ?>";
-	var l18_warning = "<i class='yp-notice-icon'></i><?php _e('Warning','yp'); ?>";
-
-	var l18_none = "Default value for this rule";
-	var l18_picker = "Active and move cursor to on any element. (Picker not work with images)";
-	</script>
-</head>
-<?php
-
-	$classes[] = 'yp-yellow-pencil wt-yellow-pencil yp-metric-disable yp-body-selector-mode-active';
-
-	if(current_user_can("edit_theme_options") == false){
-		if(defined("WT_DEMO_MODE")){
-			$classes[] = 'yp-yellow-pencil-demo-mode';
-		}
-	}
-	
-	if(defined("WT_DISABLE_LINKS")){
-		$classes[] = 'yp-yellow-pencil-disable-links';
-	}
-
-	if(!defined('WTFV')){
-		$classes[] = 'wtfv';
-	}
-
-	$classesReturn = '';
-
-	if (strpos($_SERVER['HTTP_USER_AGENT'], 'Chrome') !== false || strpos($_SERVER['HTTP_USER_AGENT'], 'CriOS') !== false) {
-	    $classes[] = 'browser_chrome';
-	}
-
-	foreach ($classes as $class){
-		$classesReturn .= ' '.$class;
-	}
-
-	$classesReturn = trim($classesReturn);
-
-?>
-<body class="<?php echo $classesReturn; ?>">
-
-	<?php
-
-		$frameLink = esc_url(urldecode($_GET['href']));
-
-		if(empty($frameLink)){
-			$frameLink = urldecode($_GET['href']);
-		}
-
-		if(isset($_GET['yp_type'])){
-
-			$type = $_GET['yp_type'];
-			$frame = add_query_arg(array('yellow_pencil_frame' => 'true','yp_type' => $type),$frameLink);
-		
-		}elseif(isset($_GET['yp_id'])){
-
-			$id = $_GET['yp_id'];
-			$frame = add_query_arg(array('yellow_pencil_frame' => 'true','yp_id' => $id),$frameLink);
-		
-		}else{
-
-			$frame = add_query_arg(array('yellow_pencil_frame' => 'true'),$frameLink);
-		
-		}
-
-	?>
-	
-	<?php
-
-		$protocol = is_ssl() ? 'https' : 'http';
-
-		$frameNew = esc_url($frame,array($protocol));
-
-		if(empty($frameNew) == true && strstr($frame,'://') == true){
-			$frameNew = explode("://",$frame);
-			$frameNew = $protocol.'://'.$frameNew[1];
-		}elseif(empty($frameNew) == true && strstr($frame,'://') == false){
-			$frameNew = $protocol.'://'.$frame;
-		}
-
-	?>
-	<iframe id="iframe" class="yellow_pencil_iframe" data-href="<?php echo $frameNew; ?>"></iframe>
-
-	<style id="yp-animate-helper"></style>
-
-	<div class="yp-animate-manager">
-
-		<h3 class="animation-manager-empty">There is no animation on this page.<small>Select an element to add animation.</small></h3>
-
-		<div class="yp-anim-list-menu"><ul></ul></div>
-
-		<div class="yp-anim-control-overflow">
-			<div class="yp-anim-controls">
-				<div class="yp-anim-control-left">
-					<div class="yp-anim-manager-control">
-						<a class="yp-anim-control-btn yp-anim-control-close" data-toggle='tooltipAnim' data-placement='top' title='Close'><span class="dashicons dashicons-no-alt"></span></a>
-						<a class="yp-anim-control-btn yp-anim-control-pause" data-toggle='tooltipAnim' data-placement='top' title='Stop'><span class="dashicons dashicons-controls-pause"></span></a>
-						<a class="yp-anim-control-btn yp-anim-control-play" data-toggle='tooltipAnim' data-placement='top' title='Play'><span class="dashicons dashicons-controls-play"></span></a>
-						<span class="yp-anim-current-duration"><span class="yp-counter-min">00</span>:<span class="yp-counter-second">00</span>.<span class="yp-counter-ms">00</span></span>
-					</div>
-				</div>
-				<div class="yp-anim-control-right">
-					<div class="yp-anim-playing-border"></div>
-					<div class="yp-anim-metric">
-					</div>
-				</div>
-				<div class="yp-clearfix"></div>
-			</div>
-		</div>
-
-		<div class="yp-animate-manager-inner">
-
-			<div class="yp-anim-left-part-column"></div>
-			<div class="yp-anim-right-part-column">
-				<div class="yp-anim-playing-over"></div>
-				<div class="yp-anim-playing-border"></div>
-			</div>
-			<div class="yp-clearfix"></div>
-
-		</div>
-
-	</div>
-
-	<div class="responsive-bottom-handle"></div>
-	<div class="responsive-right-handle"></div>
-
-	<div id="responsive-size-text"><span class="support-icon" data-toggle='tooltip' data-placement='right' title='Slowly resize your website width and be sure its looks good on all sizes. Golden rule is percentage. Use % instead of PX for width and such properties.'>?</span> Customizing for <span class="device-size"></span>px and <span class="media-control" data-code="max-width">below</span> screen sizes. <span class="device-name"></span></div>
-
-	<?php yp_yellow_penci_bar(); ?>
-	
-	<div class="top-area-btn-group">
-
-		<a target="blank" class="yellow-pencil-logo" href="http://waspthemes.com/yellow-pencil"></a>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Toggle Aiming Mode','yp'); ?>' class="top-area-btn yp-selector-mode active"><span class="aiming-icon"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Single Selector Tool','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Select only one element','yp'); ?></span>' class="top-area-btn yp-sharp-selector-btn"><span class="sharp-selector-icon"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('CSS Editor','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('shortcut: É','yp'); ?></span>' class="top-area-btn css-editor-btn"><span class="dashicons dashicons-edit"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Responsive Mode','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Edit to any screen size','yp'); ?></span>' class="top-area-btn yp-responsive-btn active"><span class="dashicons dashicons-smartphone"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Search Selector Tool','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Shortcut: F','yp'); ?></span>' class="top-area-btn yp-button-target active"><span class="dashicons dashicons-search"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Measuring Tool','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Shortcut: R','yp'); ?></span>' class="top-area-btn yp-ruler-btn"><span class="ruler-icon"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Wireframe','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Ideal for editing the sizes.','yp'); ?></span>' class="top-area-btn yp-wireframe-btn"><span class="dashicons dashicons-align-left"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Design Information','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Typography, sizes and others','yp'); ?></span>' class="top-area-btn info-btn"><span class="dashicons dashicons-info"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Animation Manager','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Control Animations.','yp'); ?></span>' class="top-area-btn animation-manager-btn"><span class="dashicons dashicons-randomize"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Undo','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Hold CTRL + Z key down','yp'); ?></span>' class="top-area-btn top-area-center undo-btn"><span class="undo-icon"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Redo','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Hold CTRL + Y key down','yp'); ?></span>' class="top-area-btn redo-btn"><span class="redo-icon"></span></div>
-
-		<div data-toggle='tooltip-bar' data-placement='right' title='<?php _e('Full-screen','yp'); ?> <span class="yp-tooltip-shortcut"><?php _e('Switch to full-screen','yp'); ?></span>' class="top-area-btn fullscreen-btn"><span class="dashicons dashicons-editor-contract"></span><span class="dashicons dashicons-editor-expand"></span></div>
-
-	</div>
-
-	<img class="metric" src="<?php echo esc_url(plugins_url( 'images/metric.png' , __FILE__ )); ?>" />
-
-	<div class="metric-left-border"></div>
-	<div class="metric-top-border"></div>
-	<div class="metric-top-tooltip">Y: <span></span> px</div>
-	<div class="metric-left-tooltip">X: <span></span> px</div>
-
-	<div class="advanced-info-box">
-		<div class="advanced-close-link"><span class="dashicons dashicons-arrow-left-alt2"></span></div>
-		<div class="advanced-info-box-menu">
-			<span class="advance-info-btns element-btn">Element</span> <span class="advance-info-btns typography-btn">Typography</span> <span class="advance-info-btns advanced-btn">Advanced</span>
-		</div>
-		<div class="advanced-info-box-inner">
-
-			<div class="typography-content advanced-info-box-content">
-
-				<h3>Color Scheme</h3>
-				<div class="info-color-scheme-list">
-				</div>
-
-				<h3 class="no-top">Basic</h3>
-				<ul class="info-basic-typography-list">
-				</ul>
-
-				<h3>Font Families</h3>
-				<ul class="info-font-family-list">
-				</ul>
-
-				<h3>Animations</h3>
-				<ul class="info-animation-list">
-				</ul>
-
-			</div>
-
-			<div class="element-content advanced-info-box-content">
-
-				<div class="info-element-selected-section">
-
-					<div class="info-element-selector-section">
-						<h3 class="no-top">CSS Selector</h3>
-						<ul class="info-element-selector-list">
-						</ul>
-					</div>
-					
-					<h3>General</h3>
-					<ul class="info-element-general">
-					</ul>
-
-					<div class="info-element-classes-section">
-						<h3>Classes</h3>
-						<ul class="info-element-class-list">
-						</ul>
-					</div>
-
-					
-
-					<h3>DOM Code</h3>
-					<textarea disabled="disabled" class="info-element-dom"></textarea>
-				</div>
-
-				<p class="info-no-element-selected">Please select one element to show informations.</p>
-
-			</div>
-
-			<div class="advanced-content advanced-info-box-content">
-				<h3>Dimensions</h3>
-				<ul class="info-basic-size-list">
-				</ul>
-				<h3>All Ids</h3>
-				<ul class="info-global-id-list">
-				</ul>
-				<h3>All Classes</h3>
-				<ul class="info-global-class-list">
-				</ul>
-			</div>
-
-		</div>
-	</div>
-
-	<div class="yp-iframe-loader"></div>
-
-	<div id="image_uploader">
-		<iframe data-url="<?php echo admin_url('media-upload.php?type=image&TB_iframe=true&reauth=1&yp_uploader=1'); ?>"></iframe>
-	</div>
-	<div id="image_uploader_background"></div>
-
-	<p class="yp-target-helper-note"><?php _e("Press Enter to continue. ESC Cancel.","yp"); ?></p>
-	<input type='text' class='yp-button-target-input' placeholder='<?php _e('Selector Search tool','yp'); ?>.' id='yp-button-target-input' />
-	<ul id="yp-target-dropdown"><li>a</li></ul>
-	<div id="target_background"></div>
-
-	<div id="leftAreaEditor">
-		<div id="cssData"></div>
-		<div id="cssEditorBar"><span title="Fullscreen" class="dashicons yp-css-fullscreen-btn dashicons-editor-code"></span><a target="_blank" title="CSS Sources" href="<?php echo admin_url('options-general.php?page=yp-options'); ?>"><span class="yp-source-page-link dashicons dashicons-admin-settings"></span></a><span data-toggle='tooltip' data-placement='right' title='<?php _e('Hide','yp'); ?> <span class="yp-tooltip-shortcut">shortcut: ESC</span>' class="dashicons yp-css-close-btn dashicons-no-alt "></span></div>
-	</div>
-
-	<div class="yp-popup-background"></div>
-	<div class="yp-info-modal">
-		<div class="yp-info-modal-top"></div>
-		<div class="yp-info-modal-top-inner">
-			<h2><?php _e("Changes not saved. Upgrade Pro!","yp"); ?></h2>
-			<p><?php _e("You are using some premium features. Disable premium features or upgrade to Pro version.","yp"); ?></p>
-		</div>
-		<ul>
-			<li><?php _e("600+ Font families","yp"); ?></li>
-			<li><?php _e("50+ CSS Animations","yp"); ?></li>
-			<li><?php _e("300+ Background patterns","yp"); ?></li>
-			<li><?php _e("Drag & Drop feature","yp"); ?></li>
-			<li><?php _e("Live Resizer feature","yp"); ?></li>
-			<li><?php _e("Unlock all features","yp"); ?></li>
-			<li><?php _e("Money back guarantee","yp"); ?></li>
-			<li><?php _e("Lifetime license & Free updates","yp"); ?></li>
-		</ul>
-
-		<div class="yp-action-area">
-			<a class="yp-info-modal-close"><?php _e("Maybe Later","yp"); ?></a>
-			<a class="yp-buy-link" target="_blank" href="http://waspthemes.com/yellow-pencil/buy"><?php _e("Get Premium","yp"); ?></a>
-			<p class="yp-info-last-note">Money back guarantee. You can request a refund at any time!</p>
-		</div>
-	</div>
-	
-	<div class="yp_debug"></div>
-
-	<div class="anim-bar">
-		<div class="anim-bar-title">
-			<div class="anim-title"><?php _e("Animation Scenes","yp"); ?></div>
-			<div class="yp-anim-save yp-anim-btn" data-toggle="tooltipAnimGenerator" data-placement="top" title="<?php _e("Done","yp"); ?>"><span class="dashicons dashicons-flag"></span></div>
-			<div class="yp-anim-play yp-anim-btn" data-toggle="tooltipAnimGenerator" data-placement="top" title="<?php _e("Play","yp"); ?>"><span class="dashicons dashicons-controls-play"></span></div>
-			<div class="yp-anim-cancel yp-anim-btn" data-toggle="tooltipAnimGenerator" data-placement="top" title="<?php _e("Cancel","yp"); ?>"><span class="dashicons dashicons-no-alt"></span></div>
-			<div class="yp-clearfix"></div>
-		</div>
-		<div class="scenes">
-			<div class="scene scene-active scene-1" data-scene="scene-1"><p><?php _e("SCENE","yp"); ?> 1 <span><input autocomplete="off" type='text' value='0' /></span></p></div>
-			<div class="scene scene-2" data-scene="scene-2"><p><?php _e("SCENE","yp"); ?> 2 <span><input type='text' autocomplete="off" value='100' /></span></p></div>
-			<div class="scene scene-add"><span class="dashicons dashicons-plus"></span></div>
-			<div class="yp-clearfix"></div>
-		</div>
-	</div>
-
-	<script src='<?php echo esc_url(plugins_url( 'js/contextmenu.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(plugins_url( 'js/nouislider.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/core.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/widget.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/mouse.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/slider.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/draggable.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/resizable.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/menu.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(includes_url( 'js/jquery/ui/autocomplete.min.js' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(plugins_url( 'js/iris.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(plugins_url( 'js/bootstrap-tooltip.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(plugins_url( 'library/js/css-engine.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	<script type='text/javascript' src='<?php echo esc_url(plugins_url( 'library/ace/ace.js' , __FILE__ )); ?>'></script>
-	<script type='text/javascript' src='<?php echo esc_url(plugins_url( 'library/ace/ext-language_tools.js' , __FILE__ )); ?>'></script>
-
-	<script src='<?php echo esc_url(plugins_url( 'js/sweetalert.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	<script src='<?php echo esc_url(plugins_url( 'js/yellow-pencil-'.YP_MODE.'.js?ver='.YP_VERSION.'' , __FILE__ )); ?>'></script>
-	</body>
-	</html><?php exit;
+exit;
 
 }
 
@@ -2405,21 +2235,178 @@ if(!defined('WTFV')){
 }
 
 
-function yp_encode( $value ) {
+/* ---------------------------------------------------- */
+/* Ading Prefix to CSS selectors for global export		*/
+/* ---------------------------------------------------- */
+function yp_add_prefix_to_css_selectors($css,$prefix){
 
+    # Wipe all block comments
+    $css = preg_replace('!/\*.*?\*/!s', '', $css);
+
+    $parts = explode('}', $css);
+    $mediaQueryStarted = false;
+
+    foreach($parts as &$part){
+        $part = trim($part); # Wht not trim immediately .. ?
+
+        if(empty($part)){
+        	continue;
+        }else{ # This else is also required
+        
+            $partDetails = explode('{', $part);
+
+            if(substr_count($part, "{") == 2){
+                $mediaQuery = $partDetails[0]."{";
+                $partDetails[0] = $partDetails[1];
+                $mediaQueryStarted = true;
+            }
+
+            $subParts = explode(',', $partDetails[0]);
+
+            foreach($subParts as &$subPart){
+                if(strstr(trim($subPart),"@") || strstr(trim($subPart),"%")){
+                	continue;
+                }else{
+
+                	// Selector
+                	$subPart = trim($subPart);
+
+                	// Array
+                	$subPartArray = explode(" ", $subPart);
+                	$lov = strtolower($subPart);
+
+                	$lovMach = str_replace("-", "US7XZX", $lov);
+                	$lovMach = str_replace("_", "TN9YTX", $lovMach);
+
+                	preg_match_all("/\bbody\b/i", $lovMach, $bodyAll);
+		            preg_match_all("/#body\b/i", $lovMach, $bodySlash);
+		            preg_match_all("/\.body\b/i", $lovMach, $bodyDot);
+
+		            preg_match_all("/\bhtml\b/i", $lovMach, $htmlAll);
+		            preg_match_all("/#html\b/i", $lovMach, $htmlSlash);
+		            preg_match_all("/\.html\b/i", $lovMach, $htmlDot);
+
+		                // Get index of "body" term.
+		                if(preg_match("/\bbody\b/i", $lovMach) && count($bodyAll[0]) > (count($bodyDot[0]) + count($bodySlash[0]))){
+
+			                $i = 0;
+			                $index = 0;
+			                foreach($subPartArray as $term){
+			                	$term = trim(strtolower($term));
+								if($term == 'body' || preg_match("/^body\./i",$term) || preg_match("/^body\#/i",$term) || preg_match("/^body\[/i",$term)){
+									$index = $i;
+									break;
+								}
+								$i++;
+							}
+
+			                // Adding prefix class to Body
+			                $subPartArray[$index] = $subPartArray[$index] . $prefix;
+
+			                // Update Selector
+			                $subPart = implode(" ",$subPartArray);
+
+		                }else if(preg_match("/\bhtml\b/i", $lovMach) && count($HtmlAll[0]) > (count($htmlDot[0]) + count($htmlSlash[0]))){
+
+			                $i = 0;
+			                $index = 0;
+			                foreach($subPartArray as $term){
+			                	$term = trim(strtolower($term));
+								if($term == 'html' || preg_match("/^html\./i",$term) || preg_match("/^html\#/i",$term) || preg_match("/^html\[/i",$term)){
+									$index = $i;
+									break;
+								}
+								$i++;
+							}
+
+			                // Adding prefix class to Body
+			                if(count($subPartArray) <= 1){
+			                	if($subPart != 'html' && preg_match("/^html\./i",$subPart) && preg_match("/^html\#/i",$subPart) && preg_match("/^html\[/i",$subPart)){
+			                		$subPartArray[$index] = $subPartArray[$index] . " body" . $prefix;
+			                	}
+			                }else{
+			                	$subPartArray[$index] = $subPartArray[$index] . " body" . $prefix;
+			                }
+
+			                // Update Selector
+			                $subPart = implode(" ",$subPartArray);
+
+		                }else{
+
+		                	// Adding prefix class to Body
+			                $subPartArray[0] = "body" . $prefix . " " . $subPartArray[0];
+
+			                // Update Selector
+			                $subPart = implode(" ",$subPartArray);
+
+		                }
+
+                }
+            }
+
+            if(substr_count($part,"{") == 2){
+                $part = $mediaQuery."\n".implode(', ', $subParts)."{".$partDetails[2];
+            }elseif(empty($part[0]) && $mediaQueryStarted){
+                $mediaQueryStarted = false;
+                $part = implode(', ', $subParts)."{".$partDetails[2]."}\n"; //finish media query
+            }else{
+                if(isset($partDetails[1])){
+                	# Sometimes, without this check,
+                    # there is an error-notice, we don't need that..
+                    $part = implode(', ', $subParts)."{".$partDetails[1];
+                }
+            }
+
+            unset($partDetails, $mediaQuery, $subParts); # Kill those three..
+
+        }
+        unset($part); # Kill this one as well
+    }
+
+    // Delete spaces
+    $output = preg_replace('/\s+/',' ',implode("} ", $parts));
+
+    // Delete all other spaces
+    $output = str_replace("{ ", "{", $output);
+    $output = str_replace(" {", "{", $output);
+    $output = str_replace("} ", "}", $output);
+    $output = str_replace("; ", ";", $output);
+
+    // Beatifull >
+    $output = str_replace("{", "{\n\t", $output);
+    $output = str_replace("}", "\n}\n\n", $output);
+    $output = str_replace("}\n\n\n", "}\n\n", $output);
+    $output = str_replace("){", "){\n", $output);
+    $output = str_replace(";", ";\n\t", $output);
+    $output = str_replace("\t\n}", "}", $output);
+    $output = str_replace("}\n\n}", "\t}\n\n}\n\n", $output);
+    
+
+    # Finish with the whole new prefixed string/file in one line
+    return(trim($output));
+
+}
+
+
+
+/* ---------------------------------------------------- */
+/* Shhh! Thats base(64) functions						*/
+/* ---------------------------------------------------- */
+function yp_encode( $value ) {
   $func = 'base64' . '_encode';
   return $func( $value );
-  
 }
 
 function yp_decode( $value ) {
-
   $func = 'base64' . '_decode';
   return $func( $value );
-  
 }
 
-// Getting all plugin options by prefix
+
+
+/* ---------------------------------------------------- */
+/* Getting All plugin options by prefix					*/
+/* ---------------------------------------------------- */
 function yp_get_all_options($prefix = '', $en = false){
 
 	global $wpdb;
@@ -2428,7 +2415,7 @@ function yp_get_all_options($prefix = '', $en = false){
 
 	if(!empty($options)){
 		foreach ($options as $v) {
-			if(strstr($v['option_name'],'wt_theme') == false && strstr($v['option_name'],'wt_available_version') == false && strstr($v['option_name'],'wt_last_check_version') == false){
+			if(strstr($v['option_name'],'wt_theme') == false && strstr($v['option_name'],'wt_available_version') == false && strstr($v['option_name'],'wt_wordpress_panel_css') == false && strstr($v['option_name'],'wt_last_check_version') == false){
 				if($en == true){
 					$ret[$v['option_name']] = yp_encode(stripslashes($v['option_value']));
 				}else{
@@ -2442,7 +2429,11 @@ function yp_get_all_options($prefix = '', $en = false){
 
 }
 
-// Getting all post meta data by prefix.
+
+
+/* ---------------------------------------------------- */
+/* Getting All post meta data by prefix					*/
+/* ---------------------------------------------------- */
 function yp_get_all_post_options($prefix = '', $en = false){
 
 	global $wpdb;
@@ -2463,7 +2454,11 @@ function yp_get_all_post_options($prefix = '', $en = false){
 
 }
 
-// Creating a json data.
+
+
+/* ---------------------------------------------------- */
+/* Creating a json data for export data					*/
+/* ---------------------------------------------------- */
 function yp_get_export_data(){
 
 	$allData = array();
@@ -2498,33 +2493,68 @@ function yp_get_export_data(){
 
 }
 
-// Creating all CSS.
-function yp_get_export_css(){
 
+
+/* ---------------------------------------------------- */
+/* Generate All CSS styles as ready-to-use				*/
+/* ---------------------------------------------------- */
+/* $method = 'export' / 'create' (string)				*/
+/* ---------------------------------------------------- */
+function yp_get_export_css($method){
+
+	// Array
 	$allData = array();
+
+	// Getting all from database
 	$postmeta_CSS = yp_get_all_post_options('_wt_css',false);
 	$option_Data = yp_get_all_options('wt_',false);
 	$option_Anims = yp_get_all_options('yp_anim',false);
 
-	if(is_array($postmeta_CSS)){
-		array_push($allData,$postmeta_CSS);
-	}
-
+	// Push option data to Array
 	if(is_array($option_Data)){
 		array_push($allData,$option_Data);
 	}
 
-	if(is_array($option_Anims)){
-		array_push($allData,$option_Anims);
+	// Push postmeta data to Array
+	if(is_array($postmeta_CSS)){
+		array_push($allData,$postmeta_CSS);
 	}
 
+	// Check if there have animations
+	if(is_array($option_Anims)){
+
+		// Push custom animations to Array
+		array_push($allData,$option_Anims);
+
+		// New Array for webkit prefix
+		$option_AnimWebkit = array();
+
+		// Copy animations as webkit
+		foreach ($option_Anims as $key => $animate){
+			$option_AnimWebkit["Webkit ".$key] = str_replace("@keyframes", "@-webkit-keyframes", $animate);
+		}
+
+		// Push Animations
+		array_push($allData, $option_AnimWebkit);
+
+	}
+
+
+	// Be sure The data not empty
 	if(empty($allData) == false){
+
+		// Clean array
 		$data = array_values($allData);
 
+		// Variables
 		$output = null;
 		$table = array();
 		$tableIndex = 0;
+		$prefix = '';
+
+		// Adding WordPress Page, category etc classes to all CSS Selectors.
 		foreach ($data as $nodes){
+
 			foreach ($nodes as $key => $css){
 			$tableIndex++;
 
@@ -2533,24 +2563,42 @@ function yp_get_export_css(){
 
 					$keyArray = explode(".", $key);
 					$postID = $keyArray[0];
-					$title = '"'.ucfirst(get_the_title($postID)).'" '.ucfirst(get_post_type($postID)).' Style';
+					$type = get_post_type($postID);
+					$title = '"'.ucfirst(get_the_title($postID)).'" '.ucfirst($type).'';
+
+					$page_for_posts = get_option( 'page_for_posts' );
+
+					if($page_for_posts == $postID){
+						$prefix = '.blog';
+					}elseif($type == 'page'){
+						$prefix = '.page-id-'.$postID.'';
+					}else{
+						$prefix = '.postid-'.$postID.'';
+					}
 
 				}else{
 
 					if($key == 'wt_css'){
 						$title = 'Global Styles';
+						$prefix = '';
 					}else if($key == 'wt_author_css'){
-						$title = 'Author Page Styles';
+						$title = 'Author Page';
+						$prefix = '.author';
 					}else if($key == 'wt_category_css'){
-						$title = 'Category Page Styles';
+						$title = 'Category Page';
+						$prefix = '.category';
 					}else if($key == 'wt_tag_css'){
-						$title = 'Tag Page Styles';
+						$title = 'Tag Page';
+						$prefix = '.tag';
 					}else if($key == 'wt_404_css'){
-						$title = '404 Error Page Styles';
+						$title = '404 Error Page';
+						$prefix = '.error404';
 					}else if($key == 'wt_search_css'){
-						$title = 'Search Page Styles';
+						$title = 'Search Page';
+						$prefix = '.search';
 					}else if($key == 'wt_home_css'){
-						$title = 'Home Page Styles';
+						$title = 'Home Page';
+						$prefix = '.home';
 					}
 
 					else if(strstr($key, 'yp_anim')){
@@ -2558,7 +2606,15 @@ function yp_get_export_css(){
 						$title = $title." Animate";
 					}else if(strstr($key, 'wt_') && strstr($key, '_css')){
 						$title = str_replace("wt_", "", $key);
-						$title = str_replace("_css", "", $title)." Template Style";
+						$title = str_replace("_css", "", $title);
+
+						if(strtolower($title) == 'page'){
+							$prefix = '.page';
+						}else{
+							$prefix = '.single-'.strtolower($title).'';
+						}
+
+						$title = $title." Template";
 					}
 
 				}
@@ -2575,35 +2631,89 @@ function yp_get_export_css(){
 					$output .= "/*-----------------------------------------------*/\r\n";
 					$output .= "/*  ".ucfirst($title)."".$extra."*/\r\n";
 					$output .= "/*-----------------------------------------------*/\r\n";
-					$output .= $css."\r\n\r\n\r\n";
+					$output .= yp_add_prefix_to_css_selectors($css,$prefix)."\r\n\r\n\r\n\r\n";
 
 				}
 
 			}
+
+		}
+		// Foreach end.
+
+
+		// Create a table list for CSS codes
+		$tableList = null;
+		$plusNumber = 1;
+		$googleFonts = array();
+
+		// Get fonts from CSS output
+		if($method == 'export'){
+			$googleFonts = yp_get_font_families($output,'import');
 		}
 
+		// If has any Google Font; Add Font familes to first table list.
+		if(count($googleFonts) > 0){
+			$tableList = "    01. Font Families\r\n";
+			$plusNumber = 2;
+		}
+
+		// Creating a table list.
+		foreach ($table as $key => $value) {
+			$tableList .= "    ".sprintf("%02d", $key+$plusNumber).". ".$value."\r\n";
+		}
+
+
+		// Google Fonts
+		if(count($googleFonts) > 0){
+			$FontsCSS = "/*-----------------------------------------------*/\r\n";
+			$FontsCSS .= "/* Font Families                                 */\r\n";
+			$FontsCSS .= "/*-----------------------------------------------*/\r\n";
+
+			foreach($googleFonts as $fontURL){
+				$FontsCSS .= "@import url('".$fontURL."');\r\n";
+			}
+
+			$FontsCSS .= "\r\n\r\n\r\n";
+		}
+
+
+		// All in.
+		$allOutPut = "/*\r\n\r\n    All these CSS codes generated by Yellow Pencil Editor.\r\n";
+		$allOutPut .= "    http://waspthemes.com/yellow-pencil\r\n\r\n\r\n";
+		$allOutPut .= "    T A B L E   O F   C O N T E N T S\r\n";
+		$allOutPut .= "    ........................................................................\r\n\r\n";
+		$allOutPut .= $tableList;
+		$allOutPut .= "\r\n*/\r\n\r\n\r\n\r\n";
+
+		// Adding Google Fonts to OutPut.
+		if(count($googleFonts) > 0){
+			$allOutPut .= $FontsCSS;
+		}
+
+		// Adding all CSS codues
+		$allOutPut .= $output;
+
+		// Process with some PHP functions and return Output CSS code.
+		if($method == 'export'){
+			return yp_css_prefix(yp_export_animation_prefix(yp_hover_focus_match(trim($allOutPut))));
+		}else{
+			return yp_css_prefix(yp_animation_prefix(yp_hover_focus_match(trim($allOutPut))));
+		}		
+
+	}else{
+
+		// No CSS?
+		return 'No CSS is found.';
+
 	}
-
-	$tableList = null;
-	foreach ($table as $key => $value) {
-		$tableList .= "    ".sprintf("%02d", $key+1).". ".$value."\r\n";
-	}
-
-
-
-	$allOutPut = "/*\r\n    Following CSS codes created by Yellow Pencil plugin.\r\n";
-	$allOutPut .= "    PS: Don't add following codes into your theme because all styles will work as global.\r\n*/\r\n\r\n\r\n";
-	$allOutPut .= "/*  T A B L E   O F   C O N T E N T S\r\n";
-	$allOutPut .= "    ........................................................................\r\n\r\n";
-	$allOutPut .= $tableList;
-	$allOutPut .= "\r\n*/\r\n\r\n\r\n";
-	$allOutPut .= $output;
-
-	return $allOutPut;
 
 }
 
-// Import json data.
+
+
+/* ---------------------------------------------------- */
+/* Import Plugin data                					*/
+/* ---------------------------------------------------- */
 function yp_import_data($json){
 
 	$json = stripslashes($json);
@@ -2644,14 +2754,16 @@ function yp_import_data($json){
 }
 
 
+
 /* ---------------------------------------------------- */
-/* Adding YP Source Page 	 							*/
+/* Adding Yellow Pencil Source Page 	 				*/
 /* ---------------------------------------------------- */
 add_action('admin_menu', 'register_yp_source_page');
 
 function register_yp_source_page() {
 	add_submenu_page( 'options-general.php', __('Yellow Pencil Source','yp'), __('Yellow Pencil Source','yp'), 'edit_theme_options', 'yp-options', 'yp_options' );
 }
+
 
 
 /* ---------------------------------------------------- */
@@ -2661,9 +2773,9 @@ if(isset($_GET['yp_exportCSS'])){
 
 	if($_GET['yp_exportCSS'] == 'true'){
 
-	$data = yp_get_export_css();
+	$data = yp_get_export_css("export");
 
-	header('Content-Disposition: attachment; filename="style-'.strtolower(date("Y-M-d")).'.css"');
+	header('Content-Disposition: attachment; filename="style-'.strtolower(date("M-d")).'.css"');
 	header("Content-type: text/css; charset: UTF-8");
 	header('Content-Length: ' . strlen($data));
 	header('Connection: close');
@@ -2675,6 +2787,7 @@ if(isset($_GET['yp_exportCSS'])){
 	}
 
 }
+
 
 
 /* ---------------------------------------------------- */
@@ -2723,10 +2836,32 @@ function yp_options() {
 
 		}
 
+		// Update output format.
+		if(isset($_POST['yp-output-option'])){
+
+			$value = $_POST['yp-output-option'];
+
+			if(!update_option('yp-output-option',$value)){
+				add_option('yp-output-option',$value);
+			}
+
+			// Create a custom CSS File.
+			if($value == 'external'){
+
+				// Get All CSS data as ready-to-use
+				$output = yp_get_export_css("create");
+
+				// Update custom.css file
+				yp_create_custom_css($output);
+
+			}
+
+		}
+
 	}
 
 	// Updated message.
-	if(isset($_GET['yp_updated'])){
+	if(isset($_GET['yp_updated']) || isset($_POST['yp-output-option']) || isset($_POST['yp_json_import_data'])){
 		?>
 			<div id="message" class="updated">
 		        <p><strong><?php _e('Settings saved.') ?></strong></p>
@@ -2861,6 +2996,15 @@ function yp_options() {
 			</li>
 			<?php } ?>
 
+			<?php if(get_option("wt_wordpress_panel_css") != ''){ ?>
+			<li>
+				<span class="yp-title">WordPress Panel</span>
+				<a class="yp-remove" onclick="return confirm('<?php _e("Are you sure?","yp"); ?>')" href="<?php echo admin_url('options-general.php?page=yp-options&yp_reset_type=wordpress_panel'); ?>"><span class="dashicons dashicons-no"></span> <?php _e('Delete','yp'); ?></a>
+				<a class="yp-customize" href="<?php echo admin_url('admin.php?page=yellow-pencil-editor&href='.yp_urlencode(esc_url(get_dashboard_url())).'&yp_type=wordpress_panel'); ?>"><span class="dashicons dashicons-edit"></span> <?php _e('Customize','yp'); ?></a>
+				<span class="yp-clearfix"></span>
+			</li>
+			<?php } ?>
+
 			<?php
 
 				global $wpdb;
@@ -2963,7 +3107,7 @@ function yp_options() {
 		<hr style="margin-top: 50px;margin-bottom: 25px;">
 
 		<h2>Export</h2>
-		<p>Copy what appears to be a random string of alpha numeric characters into this textarea<br />and paste to Import textarea on another web site.</p>
+		<p>Copy what appears to be a random string of alpha numeric characters in following text area<br />and paste into Import field on another web site.</p>
 		<div class="yp-export-section">
 			<textarea rows="6" class="yp-admin-textarea"><?php echo yp_get_export_data(); ?></textarea>
 		</div>
@@ -2971,12 +3115,47 @@ function yp_options() {
 		<hr style="margin-top: 50px;margin-bottom: 25px;">
 
 		<h2>Import</h2>
-		<p>Paste your exported data into this textarea and click "Import Styles" button.</p>
+		<p>Paste the exported data and click "Import Data" button.</p>
 		<form method="POST">
 			<div class="yp-import-section">
 				<textarea name="yp_json_import_data" rows="6" class="yp-admin-textarea"></textarea>
 			</div>
-			<input type="submit" class="button-primary" value="Import Styles" />
+			<input type="submit" class="button" value="Import Data" />
+		</form>
+
+		<hr style="margin-top: 50px;margin-bottom: 25px;">
+
+		<h2>Output CSS Options</h2>
+		<p>External CSS option still in beta, Please use dynamic CSS option if there have any issue.</p>
+		<form method="POST">
+			<table class="form-table yp-form-table">
+				<tbody>
+				<tr>
+					<?php
+
+						$a = '';
+						$b = '';
+						if(get_option('yp-output-option') == 'external'){
+							$a = 'checked="checked"';
+						}
+
+						if(get_option('yp-output-option') != 'external'){
+							$b = 'checked="checked"';
+						}
+
+					?>
+					<th><label><input name="yp-output-option" value="external" <?php echo $a; ?> type="radio"> Static External CSS File</label></th>
+					<td><code><?php echo get_site_url(null,'custom.css'); ?></code></td>
+				</tr>
+				<tr>
+					<th><label><input name="yp-output-option" value="inline" <?php echo $b; ?> type="radio"> Dynamic Inline CSS</label></th>
+					<td><code>&lt;head&gt;&lt;style&gt;.body{color:gray...</code></td>
+				</tr>
+				</tbody>
+			</table>
+			<div class="yp-output-css-footer">
+				<input type="submit" class="button-primary" value="Save Changes" />
+			</div>
 		</form>
 
 		</div>
@@ -2985,16 +3164,21 @@ function yp_options() {
 }
 
 
-// @WaspThemes.
-// Coded With Love..
 
-
-register_activation_hook( __FILE__, 'welcome_screen_activate' );
+/* ---------------------------------------------------- */
+/* Adding welcome screen Hook							*/
+/* ---------------------------------------------------- */
 function welcome_screen_activate() {
   set_transient( '_welcome_screen_activation_redirect', true, 30 );
 }
 
-add_action( 'admin_init', 'welcome_screen_do_activation_redirect' );
+register_activation_hook( __FILE__, 'welcome_screen_activate' );
+
+
+
+/* ---------------------------------------------------- */
+/* Automatic redirect after active						*/
+/* ---------------------------------------------------- */
 function welcome_screen_do_activation_redirect() {
   // Bail if no activation redirect
     if ( ! get_transient( '_welcome_screen_activation_redirect' ) ) {
@@ -3014,8 +3198,13 @@ function welcome_screen_do_activation_redirect() {
 
 }
 
-add_action('admin_menu', 'welcome_screen_pages');
+add_action( 'admin_init', 'welcome_screen_do_activation_redirect' );
 
+
+
+/* ---------------------------------------------------- */
+/* Adding a Hidden Welcome page							*/
+/* ---------------------------------------------------- */
 function welcome_screen_pages() {
   add_dashboard_page(
     'Welcome To Yellow Pencil',
@@ -3026,6 +3215,13 @@ function welcome_screen_pages() {
   );
 }
 
+add_action('admin_menu', 'welcome_screen_pages');
+
+
+
+/* ---------------------------------------------------- */
+/* Welcome Screen Content 								*/
+/* ---------------------------------------------------- */
 function yp_welcome_screen_content(){
   ?>
   <div class="wrap yp-page-welcome about-wrap">
@@ -3066,7 +3262,7 @@ function yp_welcome_screen_content(){
 			<h3>Resources</h3>
 			<ul>
 				<li><a href="http://waspthemes.com/yellow-pencil/" target="_blank">Official Website</a></li>
-				<li><a href="http://waspthemes.com/yellow-pencil/inc/Documentation/" target="_blank">Documentation</a></li>
+				<li><a href="http://waspthemes.com/yellow-pencil/documentation/" target="_blank">Documentation</a></li>
 				<li><a href="https://www.youtube.com/channel/UCKGdPyfmphEdBWPXR91GnYQ" target="_blank">Tutorials</a></li>
 				<li><a href="http://waspthemes.com/yellow-pencil/inc/changelog.txt" target="_blank">Changelogs</a></li>
 				<li><a href="https://www.facebook.com/waspthemes/" target="_blank">Facebook page</a></li>
@@ -3123,7 +3319,7 @@ function yp_welcome_screen_content(){
 			
 			<div class="yp-feature-column">
 				<h4>Help & Support!</h4>
-				<p>You must read all plugin documentation for learn how this works, Only 3 mins to read! <a target="_blank" href="http://waspthemes.com/yellow-pencil/inc/Documentation/">plugin docs</a>.</p>
+				<p>You must read all plugin documentation for learn how this works, Only 3 mins to read! <a target="_blank" href="http://waspthemes.com/yellow-pencil/documentation/">plugin docs</a>.</p>
 			</div>
 
 		</div>
@@ -3139,7 +3335,16 @@ function yp_welcome_screen_content(){
   <?php
 }
 
-add_action( 'admin_head', 'welcome_screen_remove_menus' );
+
+/* ---------------------------------------------------- */
+/* Remove Welcome Screen menu 							*/
+/* ---------------------------------------------------- */
 function welcome_screen_remove_menus() {
     remove_submenu_page( 'index.php', 'yp-welcome-screen' );
 }
+
+add_action( 'admin_head', 'welcome_screen_remove_menus' );
+
+
+// @WaspThemes.
+// Coded With Love..

@@ -36,6 +36,14 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
+.context-menu-list li > .context-menu-list{
+	display:none;
+}
+
+.context-menu-submenu.active > .context-menu-list,.context-menu-submenu.hover > .context-menu-list{
+	display:block;
+}
+
 .context-menu-item {
     padding-left: 16px;
 	vertical-align: middle;

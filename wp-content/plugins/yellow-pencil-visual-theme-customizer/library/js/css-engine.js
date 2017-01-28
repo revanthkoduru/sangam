@@ -33,41 +33,89 @@
 		}
     }
 	
+
+	window.cachedData = null;
 	
 	// CSS Engine Function
 	function cssEngine(rule,markup,defaults,source){
-		
+
 		// iframe contents.
 		var $iframe = $($('#iframe').contents().get(0));
 		
 		// Source
-		if($("#yellow-pencil").length > 0){
-			source = $("#yellow-pencil").html();
+		if(window.externalCSS == false){
+
+			// default css
+			if($("style#yellow-pencil").length > 0){
+				source = source + $("style#yellow-pencil").html();
+			}
+
+			// preview css
+			if($("style#yp-live-preview").length > 0){
+				source = source + $("style#yp-live-preview").html();
+			}
+
+			// backend css
+			if($("style#yellow-pencil-backend").length > 0){
+				source = source + $("style#yellow-pencil-backend").html();
+			}
+
+			// backend css in editor
+			if($("body").hasClass("yp-yellow-pencil")){
+				if($iframe.find("style#yellow-pencil-backend").length > 0){
+					source = source + $iframe.find("style#yellow-pencil-backend").html();
+				}
+			}
+
+		}else{
+
+			// Plus preview css
+			if($("#yp-live-preview").length > 0){
+				source = source + $("#yp-live-preview").html();
+			}
+
+			// backend css
+			if($("#yellow-pencil-backend").length > 0){
+				source = source + $("#yellow-pencil-backend").html();
+			}
+
+			// backend css in editor
+			if($("body").hasClass("yp-yellow-pencil")){
+				if($iframe.find("#yellow-pencil-backend").length > 0){
+					source = source + $iframe.find("#yellow-pencil-backend").html();
+				}
+			}
+
 		}
 
-		// preview css
-		if($("#yp-live-preview").length > 0){
-			source = $("#yp-live-preview").html();
+		if(window.cachedData == null){
+		
+			// Source
+			var data = "#yellow-pencil{-yp-engine:true;}"+source;
+
+			// Clean.
+			data = data.replace(/(\r\n|\n|\r)/g,"").replace(/\t/g, '');
+			
+			// Don't care rules in comment.
+			data = data.replace(/\/\*(.*?)\*\//g,"");
+			
+			// Don't care rules in media query.
+			data = data.replace(/@media(.*?)\}\}/g, '');
+
+			// Don't care rules in media query.
+			data = data.replace(/@-webkit-keyframes(.*?)\}\}/g, '');
+			data = data.replace(/@keyframes(.*?)\}\}/g, '');
+
+			if($("body").hasClass("yp-yellow-pencil") == false){
+				window.cachedData = data;
+			}
+
+		}else{
+
+			data = window.cachedData;
+
 		}
 
-		// Source and preview css
-		if($("#yellow-pencil").length > 0 && $("#yp-live-preview").length > 0){
-			source = $("#yellow-pencil").html()+$("#yp-live-preview").html();
-		}
-		
-		// Source
-		var data = "#yellow-pencil{-yp-engine:true;}"+source;
-
-		// Clean.
-		data = data.replace(/(\r\n|\n|\r)/g,"").replace(/\t/g, '');
-		
-		// Don't care rules in comment.
-		data = data.replace(/\/\*(.*?)\*\//g,"");
-		
-		// Don't care rules in media query.
-		data = data.replace(/@media(.*?)\}\}/g, '');
-
-		
 		
 		// Getting Selector and rule value.
 		if(data.split(rule+":").length-1 > 0){
@@ -153,6 +201,13 @@
 				
 				// USE: $value  ->  rule value. (string)
 				output = output.replace(/\$value/g,val);
+
+				// USE: $rule  ->  rule. (string)
+				if(rule.indexOf("jquery-") != -1){
+					output = output.replace(/\$rule/g,rule.split("-")[1]);
+				}else{
+					output = output.replace(/\$rule/g,rule);
+				}
 				
 				// USE: $self  ->  rule address. (object)
 				output = output.replace(/\$self/g,"$('"+selector+"')");
@@ -168,40 +223,10 @@
 						
 						// This scripts for customizer page.
 						if($("body").hasClass("yp-yellow-pencil")){
-							
-							// Each all script area.
-							$iframe.find(".yellow-pencil-scripts").each(function(){
-								
-								// if script area have.
-								if($iframe.find("#"+yp_script_id(id)).length > 0){
-									
-									// if curent script not same with new script.
-									if("(function ($){"+output+"}(jQuery));" != $iframe.find("#"+yp_script_id(id)).html()){
-										
-										// remove current script.
-										$iframe.find("#"+yp_script_id(id)).remove();
-										
-									}
-									
-								}
-								
-								// Find empty script areas.
-								if ($(this).is(':empty')){
-									
-									// empty tag.
-									var $this = $(this);
-									
-									// set script to tag.
-									if($iframe.find("#"+yp_script_id(id)).length == 0){
-										$this.html("(function ($){"+output+"}(jQuery));");
-										$this.attr("id",yp_script_id(selector+rule));
-										$this.addClass(rule+"-script");
-										return false;
-									}
-									
-								}
-						
-							});
+
+							var ifrm = $("#iframe")[0],iwind = ifrm.contentWindow;
+
+							iwind.eval("(function($){"+output+"}(jQuery));");
 					
 						}else{
 							
@@ -227,7 +252,7 @@
 	
 	// All CSS Engines.
 	function EngineRules(source){
-		
+
 		// Parallax Background CSS Engine.
 		cssEngine(
 			
@@ -252,11 +277,33 @@
 	// for Live Customizer.
 	if($("body").hasClass("yp-yellow-pencil")){
 		$('#iframe').on("load", function(){
-			EngineRules();
+			EngineRules('');
 		});
 	}else{
-		// for website.
-		EngineRules();
+
+		if($("link#yp-custom-css").length > 0){
+
+			window.externalCSS = true;
+
+			var href = $("link#yp-custom-css").attr("href");
+
+			$.when($.get(href)).done(function(source){
+
+				// for website.
+				EngineRules(source);
+
+			});
+
+		}else{
+
+			window.externalCSS = false;
+
+			// for website.
+			EngineRules('');
+
+		}
+
+
 	}
 	
 	

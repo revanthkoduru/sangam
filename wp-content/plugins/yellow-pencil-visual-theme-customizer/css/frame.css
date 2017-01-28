@@ -121,8 +121,8 @@ body.yp-hide-borders-now .hover-info-box,body.yp-element-resizing .hover-info-bo
 	position: absolute;
 	z-index:2147483645 !important;
 	pointer-events: none !important;
-	padding:2px 6px !important;
-	background:#222 !important;
+	padding:4px 8px !important;
+	background:#484848 !important;
 
 	text-align: center !important;
 	display:block !important;
@@ -133,7 +133,7 @@ body.yp-hide-borders-now .hover-info-box,body.yp-element-resizing .hover-info-bo
 	-o-transform:none !important;
 	-ms-transform:none !important;
 	transform:none !important;
-    opacity:0.8 !important;
+    opacity:0.92 !important;
     color:#EEE !important;
     font-size:11px !important;
     margin-top: 15px !important;
@@ -144,8 +144,8 @@ body.yp-hide-borders-now .hover-info-box,body.yp-element-resizing .hover-info-bo
 
     font-family:'Open Sans', sans-serif !important;
     font-weight:400px !important;
-    -webkit-box-shadow: 0 0 5px 0 rgba(0,0,0,0.7) !important;
-    box-shadow: 0 0 5px 0 rgba(0,0,0,0.7) !important;
+    -webkit-box-shadow: 0 0 5px 0 rgba(0,0,0,0.5) !important;
+    box-shadow: 0 0 5px 0 rgba(0,0,0,0.5) !important;
 }
 
 .yp-scolling .yp-size-handle{
@@ -162,7 +162,7 @@ body.yp-hide-borders-now .hover-info-box,body.yp-element-resizing .hover-info-bo
 	position: absolute !important;
 	pointer-events: none !important;
 	border-color: rgba(34, 34, 34, 0) !important;
-	border-bottom-color: #222 !important;
+	border-bottom-color: #484848 !important;
 	border-width: 7px !important;
 	margin-left: -7px !important;
 }
@@ -309,8 +309,8 @@ body:not(.yp-inserting) .ready-for-drag{
 	z-index:2147483644 !important;
 }
 
-body:not(.yp-content-selected) .yp-selected-boxed-top,body:not(.yp-content-selected) .yp-selected-boxed-bottom,body:not(.yp-content-selected) .yp-selected-others-box{
-	pointer-events:none;
+body:not(.yp-content-selected) .yp-selected-boxed-top,body:not(.yp-content-selected) .yp-selected-boxed-bottom,body:not(.yp-content-selected) .yp-selected-boxed-left,body:not(.yp-content-selected) .yp-selected-boxed-right,body:not(.yp-content-selected) .yp-selected-others-box,body:not(.yp-content-selected) .yp-edit-menu,body:not(.yp-content-selected) .yp-selected-tooltip,body:not(.yp-content-selected) .yp-selected-tooltip *{
+	pointer-events:none !important;
 }
 
 .yp-selected-boxed-left,.yp-selected-boxed-right{
@@ -323,6 +323,7 @@ body:not(.yp-content-selected) .yp-selected-boxed-top,body:not(.yp-content-selec
 	border:1px solid #4285F4 !important;
 	position:absolute !important;
 	z-index:2147483644 !important;
+	opacity:0.8;
 }
 
 .yp-content-selected .yp-selected-boxed-top,.yp-content-selected .yp-selected-boxed-bottom{
@@ -515,6 +516,15 @@ body.yp-selector-hover .yp-selected-has-transform.yp-selected-others{
 	outline-offset:-2px !important;
 }
 
+.yp-selected-others-multiable-box{
+	pointer-events:none !important;
+}
+
+body:not(.yp-control-key-down) .yp-selected-others-multiable-box{
+	display:none !important;
+	visibility:hidden !important;
+}
+
 .yp-has-transform .yp-selected-others{
 	outline: 1px solid #4285F4 !important;
 	outline-offset:-1px !important;
@@ -538,6 +548,10 @@ body.yp-hide-borders-now .yp-selected-tooltip{
 	display:none !important;
 }
 
+body.yp-control-key-down .yp-selected-others-box{
+	pointer-events:none !important;
+}
+
 body.yp-hide-borders-now .yp-edit-menu{
 	display:none !important;
 }
@@ -558,35 +572,35 @@ body.yp-hide-borders-now .yp-selected-boxed-right{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-margin-top{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-margin-top{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-margin-bottom{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-margin-bottom{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-margin-left{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-margin-left{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-margin-right{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-margin-right{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-padding-top{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-padding-top{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-padding-bottom{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-padding-bottom{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-padding-left{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-padding-left{
 	display:none !important;
 }
 
-body.yp-hide-borders-now .yp-selected-boxed-padding-right{
+body.yp-hide-borders-now:not(.yp-dragging) .yp-selected-boxed-padding-right{
 	display:none !important;
 }
 
@@ -960,7 +974,7 @@ body.yp-element-resizing .yp-edit-menu{
 	transition: box-shadow 50ms ease;
 }
 
-.yp-selected-others,.yp-selected{
+body:not(.yp-content-selected) .yp-selected-others,body:not(.yp-content-selected) .yp-selected{
 	cursor:crosshair !important;
 }
 
@@ -970,6 +984,14 @@ body.yp-element-resizing .yp-edit-menu{
 
 body:not(.yp-content-selected) .yp-selected-boxed-right,body:not(.yp-content-selected) .yp-selected-boxed-left,body:not(.yp-content-selected) .yp-selected-boxed-top,body:not(.yp-content-selected) .yp-selected-boxed-bottom{
 	cursor:crosshair !important;
+}
+
+.yp-content-selected.yp-control-key-down *, .yp-content-selected.yp-control-key-down{
+	cursor:crosshair !important;
+}
+
+.yp-content-selected.yp-control-key-down .yp-selected,.yp-content-selected.yp-control-key-down .yp-selected-others-box,.yp-content-selected.yp-control-key-down .yp-selected *,.yp-content-selected.yp-control-key-down .yp-selected-others-box *{
+	cursor:auto !important;
 }
 
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi){
@@ -997,6 +1019,16 @@ body.yp-wireframe-mode *:not(.yp-helper-tooltip):not(.yp-x-distance-border):not(
 	-webkit-border-radius:0px !important;
 	-moz-border-radius:0px !important;
 	border-radius:0px !important;
+
+	-webkit-transition: background 0ms ease !important;
+	-moz-transition: background 0ms ease !important;
+	-ms-transition: background 0ms ease !important;
+	-o-transition: background 0ms ease !important;
+	transition: background 0ms ease !important;
+
+	-webkit-filter:none !important;
+	-moz-filter:none !important;
+	filter:none !important;
 }
 
 body.yp-wireframe-mode *:before,body.yp-wireframe-mode *:after{
@@ -1037,10 +1069,14 @@ body.yp-wireframe-mode img{
 	background-position:center !important;
 	background-size:50% !important;
 	background-repeat:no-repeat !important;
+
+	-webkit-filter:none !important;
+	-moz-filter:none !important;
+	filter:none !important;
 }
 
 body.yp-wireframe-mode .yp-selected-boxed-margin-top,body.yp-wireframe-mode .yp-selected-boxed-margin-bottom,body.yp-wireframe-mode .yp-selected-boxed-margin-left,body.yp-wireframe-mode .yp-selected-boxed-margin-right{
-    background:transparent !important;
+    opacity:0.8 !important;
 }
 
 body.yp-wireframe-mode .hover-info-box{
@@ -1075,8 +1111,8 @@ body.yp-wireframe-mode .hover-info-box{
 	position: absolute;
 	z-index:2147483645 !important;
 	pointer-events: none !important;
-	padding:2px 6px !important;
-	background:#222 !important;
+	padding:4px 8px !important;
+	background:#484848 !important;
 
 	text-align: left !important;
 	display:block !important;
@@ -1087,7 +1123,7 @@ body.yp-wireframe-mode .hover-info-box{
 	-o-transform:none !important;
 	-ms-transform:none !important;
 	transform:none !important;
-    opacity:0.8 !important;
+    opacity:0.92 !important;
     color:#EEE !important;
     font-size:11px !important;
     margin-top: -40px !important;
@@ -1098,8 +1134,12 @@ body.yp-wireframe-mode .hover-info-box{
 
     font-family:'Open Sans', sans-serif !important;
     font-weight:400px !important;
-    -webkit-box-shadow: 0 0 5px 0 rgba(0,0,0,0.7) !important;
-    box-shadow: 0 0 5px 0 rgba(0,0,0,0.7) !important;
+    -webkit-box-shadow: 0 0 5px 0 rgba(0,0,0,0.5) !important;
+    box-shadow: 0 0 5px 0 rgba(0,0,0,0.5) !important;
+}
+
+.yp-iframe-mouseleave .yp-size-handle{
+    display:none !important;
 }
 
 .yp-page-border-left,.yp-page-border-right{

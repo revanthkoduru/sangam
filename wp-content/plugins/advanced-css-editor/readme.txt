@@ -1,8 +1,8 @@
 === Advanced CSS Editor ===
-Contributors: codeinwp, themeisle, hardeepasrani, rodicaelena, Uriahs Victor
+Contributors: codeinwp, themeisle, hardeepasrani, rodicaelena, uriahs-victor
 Tags: code, CSS, custom, dashboard, easy, edit, editor, formatting, free, mobile, responsive, simple
 Requires at least: 3.0
-Tested up to: 4.6
+Tested up to: 4.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,12 +16,13 @@ Features:
 
 - Possibility to add different custom CSS based on the type of deviced
 - Experience live all the changes via Appearance -> Customize
+- Minify your CSS to optimize your site
 - Custom CSS for Phone
 - Custom CSS for Tablet
 - Custom CSS for Desktop
 - Custom CSS for Global purpose
 
-This plugin is maintained and supported by Themeisle, check out some of the other <a href="http://themeisle.com/wordpress-plugins/" rel="friend">WordPress plugins</a> and <a href="http://themeisle.com/wordpress-themes/free/" rel="friend">free themes</a> we've developed.
+This plugin is maintained and supported by Themeisle, check out some of the other <a href="http://themeisle.com/wordpress-plugins/" rel="nofollow">WordPress plugins</a> and <a href="http://themeisle.com/wordpress-themes/free/" rel="nofollow">free themes</a> we've developed.
 
 == Installation ==
 

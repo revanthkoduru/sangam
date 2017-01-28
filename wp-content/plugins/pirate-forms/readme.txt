@@ -1,8 +1,8 @@
 === Simple Contact Form Plugin - PirateForms ===
 Contributors: themeisle, codeinwp, rodicaelena, alexandrastan001, gouravwptech, hardeepasrani
-Tags:  contact form 7,Attachment, cnotact, conact, contact, contact button, contact form, contact form plugin, contact me, contacts, contacts form plugin, contatc, copy, email submit form, email subscription, feedback, feedback form, form, insert the shortcode, message form, post feedback, request, send, send copy, send messages, shortcode, text, web-page feedback,smtp,recaptcha,admin, advanced form, best contact form plugin, contact, contact button, contact form, contact form builder, Contact Form Builder with recaptcha, contact form plugin, contact forms, contact forms plugin, contact manager, contact us, contact us form, contacts form plugin, custom form, feedback, feedback form, feedback forms, form, forms, forms plugin, post feedback, web form, web forms, wordpress contact form
+Tags:  contact forms plugin, contact form, contact us, contact us form, contacts form plugin, custom form, subscribe form, feedback form, wordpress contact form
 Requires at least: 3.0
-Tested up to: 4.5.2
+Tested up to: 4.7
 Stable tag: trunk
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -76,6 +76,23 @@ Activating the Pirate Contact Form plugin is just like any other plugin. If you'
 4. Screenshot 4. Enabling SMTP
 
 == Changelog ==
+
+= 1.2.0 =
+
+* Fixed security error when upload field was active.
+
+= 1.1.3 =
+
+* Added integration with custom emails plugin
+* Fixed text domains errors
+
+= 1.1.0 =
+* Escape form fields ( Thanks to Gabriel Avramescu gabriel.avramescu@ituniversity.ro )
+
+= 1.0.18 =
+* Fixed php strict standards error
+* Update tags
+* Tested up to WordPress 4.6
 
 = 1.0.17 =
 * Fixed IP issue when using web server behind a reverse proxy

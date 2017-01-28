@@ -60,3 +60,11 @@
 	background: #f9f9f9;
 	margin-bottom: 8px;
 }
+
+.yp-output-css-footer{
+	margin-top:10px;
+}
+
+.yp-form-table th{
+	padding:11px 10px 17px 0 !important;
+}

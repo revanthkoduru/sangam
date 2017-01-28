@@ -2,13 +2,16 @@
 
     "use strict";
 
+
     // Ace Editor Set Up
+    ace.config.set("basePath",window.aceEditorBase);
     ace.require("ace/ext/language_tools");
     var editor = ace.edit("cssData");
     editor.getSession().setMode("ace/mode/css");
     editor.setTheme("ace/theme/twilight");
     editor.getSession().setUseWrapMode(true);
     editor.$blockScrolling = Infinity;
+
 
     // enable autocompletion and snippets
     editor.setOptions({
@@ -17,6 +20,7 @@
         enableLiveAutocompletion: true
     });
 
+    // Set font size to editor
     if ($(window).height() > 790) {
         editor.setOptions({
             fontSize: "17px"
@@ -27,24 +31,16 @@
         });
     }
 
-    // Separator
+    // Selector Separator
     window.separator = ' ';
-
-    // After main page load, go to loading iframe.
-    window.onload = function() {
-        setTimeout(function() {
-            var s = $("#iframe").attr("data-href");
-            $("#iframe").attr("src", s);
-        }, 5);
-    };
 
     // All Yellow Pencil Functions.
     window.yellow_pencil_main = function() {
 
             // Cache left bar width.
-            window.leftbarWidth = 61;
+            window.leftbarWidth = 46;
 
-            // onscreen plugin.
+            // Onscreen plugin.
             $.expr[":"].onScreenFrame = function(n) {
                 var t = $(document),
                     o = t.scrollTop(),
@@ -57,13 +53,17 @@
                 return i >= o && c > i || u > o && c >= u || h > r && o >= i && u >= c;
             };
 
+
             // Don't load again.
-            if ($("body").hasClass("yp-yellow-pencil-loaded")) {
+            if ($("body").hasClass("yp-yellow-pencil-loaded")){
                 return false;
             }
 
-            // for custom selector
+            // For Custom Selector
             window.setSelector = false;
+
+            // Check if re-undo buttons active.
+            check_undoable_history();
 
             // Seting popular variables.
             var iframe = $($('#iframe').contents().get(0));
@@ -71,160 +71,31 @@
             var body = $(document.body).add(iframeBody);
             var mainDocument = $(document).add(iframe);
 
-            // Saving all CSS codes as a var.
-            window.humanStyleData = '';
-            iframe.find("link[rel='stylesheet']").each(function(){
 
-                var href = $(this).attr("href");
+            // Adding yp-animating class to animating elements.
+            iframe.find(window.basic_not_selector).on('animationend webkitAnimationEnd oanimationend MSAnimationEnd',function(){
 
-                if(href.indexOf("googleapis.com") == -1 && href.indexOf("waspthemes-yellow-pencil") == -1 && href.indexOf("animate.css") == -1){
-
-                    $.when($.get(href)).done(function(data){
-                        window.humanStyleData += data;
-                    });
-
-                }
-
-            });
-
-
-            // Get human selector controller.
-            window.humanSelectorArray = [];
-            window.humanSelectorArrayEnd = false;
-            function yp_get_human_selector(data){
-
-                var allSelectors;
-
-                // Don't search it always
-                if(window.humanSelectorArray.length == 0){
-
-                    // Clean.
-                    data = data.replace(/(\r\n|\n|\r)/g, "").replace(/\t/g, '');
-
-                    // Don't care rules in comment.
-                    data = data.replace(/\/\*(.*?)\*\//g, "");
-
-                    // clean.
-                    data = data.replace(/\}\s+\}/g, '}}').replace(/\s+\{/g, '{');
-
-                    // clean.
-                    data = data.replace(/\s+\}/g, '}').replace(/\{\s+/g, '{').replace(/\”/g,'"').replace(/“/g,'"');
-
-                    // Don't care rules in media query
-                    data = data.replace(/@media(.*?)\}\}/g, '').replace(/@?([a-zA-Z0-9_-]+)?keyframes(.*?)\}\}/g, '').replace(/@font-face(.*?)\}\}/g, '').replace(/@import(.*?)\;/g,'').replace(/@charset(.*?)\;/g,'');
-
-                    // if no data, stop.
-                    if (data == '') {
-                        return false;
-                    }
-
-                    data = data.toString().replace(/\}\,/g, "}");
-
-                    // Getting All CSS Selectors.
-                    allSelectors = yp_cleanArray(data.replace(/\{(.*?)\}/g, '|BREAK|').split("|BREAK|"));
-
-                }
-
-                // Vars
-                var foundedSelectors = [];
-                var selector;
-
-                // get cached selector Array
-                if(window.humanSelectorArrayEnd){
-                    allSelectors = window.humanSelectorArray;
-                }
-
-                if(isUndefined(allSelectors)){
+                // Stop if any yp animation tool works
+                if(body.hasClass("yp-anim-creator") || body.hasClass("yp-animate-manager-active")){
                     return false;
                 }
 
-                // Each All Selectors
-                for (var i = 0; i < allSelectors.length; i++){
+                var element = $(this);
 
-                    // Get Selector.
-                    selector = $.trim(allSelectors[i]);
-                    selector  = $.trim(selector.replace("{",'').replace("}",''));
-
-                    // YP not like so advanced selectors.
-                    if(selector.indexOf(",") != -1 || selector.indexOf(":") != -1){
-                        continue;
-                    }
-
-                    // Not basic html tag selectors.
-                    if(selector.indexOf("#") == -1 && selector.indexOf(".") == -1){
-                        continue;
-                    }
-
-                    // min two
-                    if(yp_selector_to_array(selector).length < 2){
-                        continue;
-                    }
-
-                    if(iframeBody.find(selector).length > 0){
-
-                        // set as cache
-                        if(window.humanSelectorArrayEnd === false){
-                            window.humanSelectorArray.push(selector);
-                        }
-
-                        if(iframeBody.find(selector).hasClass("yp-selected")){
-                            foundedSelectors.push(selector);
-                        }
-
-                    }
-
+                // remove animating class.
+                if(element.hasClass("yp-animating")){
+                    element.removeClass("yp-animating");
                 }
 
-                // Don't read again css files. cache all human CSS selectors.
-                window.humanSelectorArrayEnd = true;
+                // Set outline selected style if selected element has animating.
+                if(element.hasClass("yp-selected") && is_content_selected()){
+                    body.removeClass("yp-has-transform");
+                    draw();
+                }
 
-                // New selectors
-                var foundedNewSelectors = [];
+                return false;
 
-                // Each all founded selectors.
-                // Don't use if has non useful classes as format-link etc.
-                $.each(foundedSelectors,function(i){
-
-                    var selectorBefore = foundedSelectors[i].replace(/\-/g,'W06lXW');
-                    var passedClasses = true;
-
-                    // Check if has nonUseful classes
-                    $.each((filterBadClassesBasic),function(x,v){
-
-                        v = v.replace(/\-/g,'W06lXW').replace(/0W06lXW9/g,'0-9').replace(/\(\w\+\)/g,'\(\\w\+\)').replace(/aW06lXWzAW06lXWZ0-9_W06lXW/g,'a-zA-Z0-9_-').toString();
-                        var re = new RegExp("\\b"+v+"\\b","g");
-
-                        // Not find any non useful class.
-                        if(selectorBefore.match(re) !== null){
-                            passedClasses = false;
-                        }
-
-                    });
-
-                    // Check if has nonUseful classes
-                    $.each((filterBadClassesPlus),function(x,v){
-
-                        v = v.replace(/\-/g,'W06lXW').replace(/0W06lXW9/g,'0-9').replace(/\(\w\+\)/g,'\(\\w\+\)').replace(/aW06lXWzAW06lXWZ0-9_W06lXW/g,'a-zA-Z0-9_-').toString();
-                        var re = new RegExp("\\b"+v+"\\b","g");
-
-                        // Not find any non useful class.
-                        if(selectorBefore.match(re) !== null){
-                            passedClasses = false;
-                        }
-
-                    });
-
-                    // Add selector if passed nonuseful Classes.
-                    if(passedClasses === true){
-                        foundedNewSelectors.push(foundedSelectors[i]);
-                    }
-
-                });
-
-                return foundedNewSelectors;
-
-            }
-
+            });
 
 
             $(".yp-animate-manager-inner").on("scroll",function(){
@@ -241,6 +112,7 @@
             $(".yp-wireframe-btn").click(function(){
                 body.toggleClass("yp-wireframe-mode");
                 $(".yp-editor-list > li.active > h3").trigger("click");
+                gui_update();
             });
 
 
@@ -273,9 +145,9 @@
                 $(this).addClass("active");
 
                 var S_inMS = (s*1000);
-                clearTimeout(window.yp_anim_player);
+                clear_animation_timer();
 
-                window.yp_anim_player = setTimeout(function(){
+                window.animationTimer3 = setTimeout(function(){
                     $(".yp-anim-control-pause").trigger("click");
                 },S_inMS);
 
@@ -287,12 +159,14 @@
                 // Play animations
                 iframe.find('[data-rule="animation-name"]').each(function(i){
 
+                    var data = $(this).html().replace(/\/\*(.*?)\*\//g, "");
+
                     // Variables
-                    var selector = $(this).html().split("{")[0];
+                    var selector = data.split("{")[0];
 
                     // Get Selector
                     if(selector.indexOf("@media") != -1){
-                        selector = $(this).html().split("{")[1].split("{")[0];
+                        selector = data.split("{")[1].split("{")[0];
                     }
 
                     selector = selector.replace(".yp_hover","").replace(".yp_focus","").replace(".yp_click","").replace(".yp_onscreen","");
@@ -363,7 +237,7 @@
                     iframe.find('[data-rule="animation-name"]').each(function(i){
 
                         // Variables
-                        var data = $(this).html();
+                        var data = $(this).html().replace(/\/\*(.*?)\*\//g, "");
                         var array = data.split("{");
                         var selector = array[0];
 
@@ -395,7 +269,7 @@
 
             });
 
-            $(".yp-anim-control-close").on("click",function(){
+            $(".yp-anim-control-close,.yp-visual-editor-link").on("click",function(){
                 $(".animation-manager-btn").trigger("click");
             });
 
@@ -406,7 +280,7 @@
                  $(".yp-anim-control-pause").trigger("click");
                  if(!$(this).hasClass("active")){
 
-                    yp_anim_manager();
+                    animation_manager();
 
                     // Find largest line for play/stop.
                     var maxWidth = Math.max.apply( null, $( '.yp-anim-process-inner' ).map( function (){
@@ -418,7 +292,12 @@
 
                  }
 
-                 yp_insert_default_options();
+                if($(".animation-option.active").length > 0){
+                    $(".animation-option.active h3").trigger("click");
+                    $(".animation-option.active").removeAttr("data-loaded");
+                }
+
+                insert_default_options();
 
             });
 
@@ -443,7 +322,7 @@
 
                     body.addClass("yp-anim-removing");
 
-                        yp_animate_updater();
+                        update_animation_manager();
 
                         $(".yp-delay-zero").each(function(){
 
@@ -457,93 +336,206 @@
 
                     body.removeClass("yp-anim-removing");
                     
-                    yp_anim_manager();
+                    animation_manager();
 
                 });
 
             });
+
     
+            /* ---------------------------------------------------- */
+            /* get selected element object                          */
+            /* ---------------------------------------------------- */
+            function get_selected_element(){
+
+                return iframe.find(".yp-selected");
+
+            }
+
+            /* ---------------------------------------------------- */
+            /* check if content selected                            */
+            /* ---------------------------------------------------- */
+            function is_content_selected(){
+
+                return body.hasClass("yp-content-selected");
+
+            }
+
+            function is_dragging(){
+
+                return body.hasClass("yp-dragging");
+
+            }
+
+            function is_resizing(){
+
+                return body.hasClass("yp-element-resizing");
+
+            }
+
+
+            /* ---------------------------------------------------- */
+            /* Check if is anim creator mode                        */
+            /* ---------------------------------------------------- */
+            function is_animate_creator(){
+
+                return body.hasClass("yp-anim-creator");
+
+            }
             
-            function filterBadClasses(c){
 
-                // menu-item-15 etc.
-                if(c.match(/-item-[0-9]/g) !== null || c.match(/yp-selected/g) !== null || c.match(/^post-[0-9]/g) !== null || c.match(/avatar-[0-9]/g) !== null){
-                    return false;
-                }
+            
+            /* ---------------------------------------------------- */
+            /* Get the element classes (Cleaned by editor classes)  */
+            /* ---------------------------------------------------- */
+            function get_cleaned_classes(el,oldArray){
 
-                if(c.match(/^yp-/g)){
-                    return false;
-                }
+                var resultArray = [];
 
-                // some classes
-                if(c == 'fb-root' || c == 'ui-draggable' || c == 'ui-draggable-handle'){
-                    return false;
-                }
+                // Element Classes
+                var classes = el.attr("class");
 
-                return true;
+                // Is defined?
+                if(isDefined(classes)){
+
+                    // Cleaning all Yellow Pencil classes.
+                    classes = class_cleaner(classes);
+
+                    // Clean spaces
+                    classes = space_cleaner(classes);
+
+                    // If not empty
+                    if(classes.length >= 1){
+
+                        var classesArray = get_classes_array(classes);
+
+                        // Be sure there have more class then one.
+                        if(classesArray.length > 0){
+
+                            // Each
+                            for(var io = 0;io < classesArray.length; io++){
+
+                                // Clean spaces
+                                var that = space_cleaner(classesArray[io]);
+
+                                // continue If not have this class in data
+                                if(resultArray.indexOf(that) == -1 && oldArray.indexOf(that) == -1 && that.length >= 1){
+
+                                    // Push.
+                                    resultArray.push(that);
+
+                                }
+
+                            }
+
+                        }else{
+
+                            // continue If not have this class in data
+                            if(resultArray.match(classes) == -1 && oldArray.indexOf(classes) == -1){
+
+                                // Push
+                                resultArray.push(classes);
+
+                            } // If
+
+                        } // else
+
+                    } // not empty.
+
+                } // IsDefined
+
+                // return.
+                return resultArray;
 
             }
 
     
-            // Updating all general informations.
-            function yp_update_infos(type){
+            /* ---------------------------------------------------- */
+            /* Updating Design information section                  */
+            /* ---------------------------------------------------- */
+            function update_design_information(type){
 
-                // cache
-                var elementMain = $(".info-element-general");
-                var elementClasseslist = $(".info-element-class-list");
-                var elementSelectorList = $(".info-element-selector-list");
 
-                // delete ex
+                // Was wireframe?
+                var washaveWireFrame = false;
+
+
+                // Check wireframe
+                if(body.hasClass("yp-wireframe-mode")){
+                    washaveWireFrame = true;
+                    body.removeClass("yp-wireframe-mode");
+                }
+
+
+                // Cache elements
+                var elementMain = $(".info-element-general"),
+                elementClasseslist = $(".info-element-class-list"),
+                elementSelectorList = $(".info-element-selector-list");
+
+
+                // Clean Old data
                 $(".info-element-general,.info-element-class-list,.info-element-selector-list").empty();
 
+
+                // Updating Section.
                 if(type != 'element'){
 
-                    // delete ex
+
+                    // Delete Old
                     $(".info-color-scheme-list,.info-font-family-list,.info-animation-list,.info-basic-typography-list,.info-basic-size-list").empty();
 
-                    var colorlist = $(".info-color-scheme-list");
-                    var familylist = $(".info-font-family-list");
-                    var animatelist = $(".info-animation-list");
-                    var sizelist = $(".info-basic-size-list");
-                    var typolist = $(".info-basic-typography-list");
-                    var globalclasslist = $(".info-global-class-list");
-                    var globalidlist = $(".info-global-id-list");
 
-                    var maxWidth = 0;
-                    var maxWidthEl = null;
-                    var k = $(window).width();
+                    // Get elements as variable.
+                    var colorlist = $(".info-color-scheme-list"),
+                    familylist = $(".info-font-family-list"),
+                    animatelist = $(".info-animation-list"),
+                    sizelist = $(".info-basic-size-list"),
+                    typographyList = $(".info-basic-typography-list"),
+                    globalclasslist = $(".info-global-class-list"),
+                    globalidlist = $(".info-global-id-list");
+
+
+                    // Variables
+                    var maxWidth = 0,
+                    maxWidthEl = null,
+                    k = $(window).width();
+
 
                     // Append general elements
                     iframeBody.append("<h1 id='yp-heading-test-level-1'></h1><h2 id='yp-heading-test-level-2'></h2><h3 id='yp-heading-test-level-3'></h3><h4 id='yp-heading-test-level-4'></h4><h5 id='yp-heading-test-level-5'></h5><h6 id='yp-heading-test-level-6'></h6><h6 id='yp-paragraph-test'></h6>");
 
-                    // Font sizes
-                    var ParagraphEl = iframeBody.find("#yp-paragraph-test");
-                    var body_size = parseFloat(iframeBody.css("font-size"));
-                    var paragraph_size = parseFloat(ParagraphEl.css("font-size"));
-                    body_size = Math.round( body_size * 10 ) / 10;
-                    paragraph_size = Math.round( paragraph_size * 10 ) / 10;
+
+                    // Font Sizes
+                    var paragraphElement = iframeBody.find("#yp-paragraph-test"),
+                    bodyFontSize = (Math.round( parseFloat( iframeBody.css("font-size") ) * 10 ) / 10),
+                    paragraphFontSize = (Math.round( parseFloat( paragraphElement.css("font-size") ) * 10 ) / 10);
+
 
                     // Font family
-                    var body_family = iframeBody.css("font-family");
-                    var paragraph_family = ParagraphEl.css("font-family");
+                    var bodyFamily = iframeBody.css("font-family");
+                    var paragraphFamily = paragraphElement.css("font-family");
 
-                    // Update basic typo 
-                    typolist
-                    .append('<li><span class="typo-list-left">General (body)</span><span class="typo-list-right"><span>'+body_size+'px, '+yp_get_font_name(body_family)+'</span></span></li>')
-                    .append('<li><span class="typo-list-left">Paragraph</span><span class="typo-list-right"><span>'+paragraph_size+'px, '+yp_get_font_name(paragraph_family)+'</span></span></li>');
 
-                    // Clean created elements
-                    ParagraphEl.remove();
+                    // Update typography information
+                    typographyList
+                    .append('<li><span class="typo-list-left">General (body)</span><span class="typo-list-right"><span>'+bodyFontSize+'px, '+get_font_name(bodyFamily)+'</span></span></li>')
+                    .append('<li><span class="typo-list-left">Paragraph</span><span class="typo-list-right"><span>'+paragraphFontSize+'px, '+get_font_name(paragraphFamily)+'</span></span></li>');
 
-                    // Update h1 > h6
+
+                    // Delete created element. (Created only for test)
+                    paragraphElement.remove();
+
+
+                    // Update Heading tags. h1 > h6
                     for(var i = 1; i <= 6; i++){
                         var el = iframeBody.find("#yp-heading-test-level-"+i);
                         var size = parseFloat(el.css("font-size"));
                         size = Math.round( size * 10 ) / 10;
                         var family = el.css("font-family");
-                        typolist.append('<li><span class="typo-list-left">Heading Level '+i+'</span><span class="typo-list-right"><span>'+size+'px, '+yp_get_font_name(family)+'</span></span></li>');
+                        typographyList.append('<li><span class="typo-list-left">Heading Level '+i+'</span><span class="typo-list-right"><span>'+size+'px, '+get_font_name(family)+'</span></span></li>');
                         el.remove();
                     }
+
 
                     // Each all elements for find what we need.
                     var ColoredEl = [];
@@ -553,9 +545,13 @@
                     var idArray = [];
                     var boxSizingArray = [];
 
-                    iframeBody.find('*:not(.yp-selected):not(.yp-selected-other):not(.yp-x-distance-border):not(.yp-y-distance-border):not(.hover-info-box):not(.yp-size-handle):not(.yp-edit-menu):not(.yp-selected-tooltip):not(.yp-tooltip-small):not(.yp-selected-handle):not([class^="yp-selected-boxed-"]):not([class^="yp-selected-others-box"]):not(.ypdw):not(.ypdh):not(.yp-helper-tooltip):not(link):not(style):not(script):not(param):not(option):not(tr):not(td):not(th):not(thead):not(tbody):not(tfoot):visible').each(function(i){
+                    // Each
+                    iframeBody.find(get_all_elements()).each(function(i){
 
+
+                        // Element
                         var el = $(this);
+
 
                         // Find container
                         var otherWidth = el.outerWidth();
@@ -565,27 +561,26 @@
                             if(otherWidth > maxWidth){
                                 maxWidthEl = el;
                             }
+
+                            // MaxWidth Element Founded. (Container)
                             maxWidth = Math.max(otherWidth, maxWidth);
 
                         }
 
+
                         // Filter font family elements.
-                        var family = yp_get_font_name(el.css("font-family"));
+                        var family = get_font_name(el.css("font-family"));
                         if(familyArray.indexOf(family) == -1){
                             familyArray.push(family);
                         }
 
+
                         // Filter colored elements.
                         var color = el.css("background-color").toLowerCase().replace(/ /g,"");
-                        if(color != 'transparent' && color != 'rgb(255,255,255)'){
+                        if(color != 'transparent' && color != 'rgb(255,255,255)' && color != 'rgba(0,0,0,0)' && color != 'rgba(255,255,255,0)'){
                             ColoredEl.push(this);
                         }
 
-                        // Filter animated elements.
-                        var animate = el.css("animation-name");
-                        if(animatedArray.indexOf(animate) == -1){
-                            animatedArray.push(animate);
-                        }
 
                         // Get box sizing
                         if(i < 20){ // Get only on first 20 elements. no need to more.
@@ -601,55 +596,63 @@
                             }
                         }
 
+
+                        // Find classes and ids
                         setTimeout(function(){
-                        // Get classes
-                        if(globalclasslist.find("li").length == 0){
-                            var classes = (el.attr("class"));
-                            if(isDefined(classes)){
 
-                                classes  = $.trim(classes);
-                                if(classes !== ''){
-                                    if(yp_classes_to_array(classes).length > 0){
-                                        classes = yp_classes_to_array(classes);
-                                        for(var io = 0;io < classes.length; io++){
-                                            if(classArray.indexOf(classes[io]) == -1 && filterBadClasses(classes[io])){
-                                                classArray.push(classes[io]);
-                                            }
-                                        }
-                                    }else{
-                                        if(classArray.indexOf(classes) == -1 && filterBadClasses(classes)){
-                                            classArray.push(classes);
-                                        }
-                                    }
-                                    
+                            // If there not have any class in our list
+                            if(globalclasslist.find("li").length === 0){
+
+                                // Get Cleaned classes.
+                                var arrayClassAll = get_cleaned_classes(el,classArray);
+
+                                // Concat if not empty.
+                                if(arrayClassAll.length > 0){
+                                    classArray = classArray.concat(arrayClassAll);
                                 }
 
                             }
 
-                        }
 
+                            // Get ID
+                            // If there not have any id in our list.
+                            if(globalidlist.find("li").length === 0){
 
-                        // Get ids
-                        if(globalidlist.find("li").length == 0){
-                            var id = (el.attr("id"));
-                            if(isDefined(id)){
+                                // Get Id
+                                var id = el.attr("id");
 
-                                id  = $.trim(id);
+                                // is defined
+                                if(isDefined(id)){
 
-                                if(filterBadClasses(id)){                            
-
+                                    // continue If not have this class in data
                                     if(idArray.indexOf(id) == -1){
+
+                                        // Push
                                         idArray.push(id);
+
                                     }
 
                                 }
 
                             }
-                        }
+
+
                         },500);
 
+                    });
+
+    
+                    // Filter animated elements.
+                    iframe.find(".yp-styles-area [data-rule='animation-name']").each(function(){
+
+                        var animate = escape_data_value($(this).html());
+
+                        if(animatedArray.indexOf(animate) == -1){
+                            animatedArray.push(animate);
+                        }
 
                     });
+
 
                     // Not adding on responsive mode.
                     var containerWidth;
@@ -681,6 +684,7 @@
 
                     });
 
+
                     // Update fonts
                     $.each(familyArray,function(i,v){
                         familylist.append("<li>"+v+"</li>");
@@ -693,14 +697,16 @@
                     });
 
 
-                    // Append sizes
+                    // Append Size information to size section.
                     sizelist.append('<li><span class="typo-list-left">Box Sizing</span><span class="typo-list-right"><span>'+boxSizingArray.toString()+'</span></span></li>')
                     .append('<li><span class="typo-list-left">Container Width</span><span class="typo-list-right"><span>'+containerWidth+'</span></span></li>')
                     .append('<li><span class="typo-list-left">Document Width</span><span class="typo-list-right"><span>'+(parseInt(iframe.width())+window.leftbarWidth)+'px</span></span></li>')
                     .append('<li><span class="typo-list-left">Document Height</span><span class="typo-list-right"><span>'+iframe.height()+'px</span></span></li>');
 
+
                     // waiting a litte for high performance.
                     setTimeout(function(){
+
                         // Append classes
                         $.each(classArray,function(i,v){
                             globalclasslist.append("<li>."+v+"</li>");
@@ -710,84 +716,88 @@
                         $.each(idArray,function(i,v){
                             globalidlist.append("<li>#"+v+"</li>");
                         });
+
                     },1000);
+
 
                 }
 
-                // Element Section
-                if($("body").hasClass("yp-content-selected")){
 
+                // if is element Section
+                if(is_content_selected()){
+
+
+                    // Hide and show some sections in design information
                     $(".info-no-element-selected").hide();
                     $(".info-element-selected-section").show();
                     $("info-element-selector-section").hide();
 
-                    var selectedEl = iframeBody.find(".yp-selected");
+
+                    // cache selected element
+                    var selectedEl = get_selected_element();
                     var selectedID = selectedEl.attr("id");
 
-                    // Tag name.
+
+                    // Getting element ID.
                     if(isDefined(selectedID)){
+
+                        // Is valid?
                         if(selectedID !== ''){
-                        elementMain.append('<li><span class="typo-list-left">Element ID</span><span class="typo-list-right"><span>#'+selectedID+'</span></span></li>');
+
+                            // Append
+                            elementMain.append('<li><span class="typo-list-left">Element ID</span><span class="typo-list-right"><span>#'+selectedID+'</span></span></li>');
+
                         }
+
                     }
 
+
+                    // Append Tag name
                     elementMain.append('<li><span class="typo-list-left">Tag</span><span class="typo-list-right"><span>'+selectedEl[0].nodeName+'</span></span></li>');
+
+
+                    // Append Affected count
                     elementMain.append('<li><span class="typo-list-left">Affected elements</span><span class="typo-list-right"><span>'+(parseInt(iframeBody.find(".yp-selected-others").length)+1)+'</span></span></li>');
 
-                    // Get class name
-                    var classSelfArray = [];
-                    var classesP = selectedEl.attr("class");
 
-                    if(isDefined(classesP)){
+                    // Get class Array
+                    var classSelfArray = get_cleaned_classes(selectedEl,[]);
 
-                        classesP  = $.trim(classesP);
+                    var x;
 
-                        if(classesP !== ''){
-                            if(yp_classes_to_array(classesP).length > 0){
+                    // Append all classes.
+                    for(x = 0; x < classSelfArray.length; x++){
 
-                                classesP = yp_classes_to_array(classesP);
-
-                                for(var p = 0;p < classesP.length;p++){
-                                    if(classSelfArray.indexOf(classesP[p]) == -1){
-                                        classSelfArray.push(classesP[p]);
-                                    }
-                                }
-
-                            }else{
-                                if(classSelfArray.indexOf(classesP) == -1){
-                                    classSelfArray.push(classesP);
-                                }
-                            }
-                        
-                        }
+                        // Append
+                        elementClasseslist.append("<li>."+classSelfArray[x]+"</li>");
 
                     }
 
 
-                    // Classes name.
-                    for(var x = 0; x < classSelfArray.length; x++){
-                        if(classSelfArray[x] !== '' && classSelfArray[x] != ' ' && classSelfArray[x] != 'yp-selected' && classSelfArray[x] != 'ui-draggable' && classSelfArray[x] != 'ui-draggable-handle' && classSelfArray[x] != 'context-menu-active'){
-                            elementClasseslist.append("<li>."+classSelfArray[x]+"</li>");
-                        }
-                    }
-
-                    if(elementClasseslist.find("li").length == 0){
+                    // Hide class section if empty.
+                    if(elementClasseslist.find("li").length === 0){
                         $(".info-element-classes-section").hide();
                     }else{
                         $(".info-element-classes-section").show();
                     }
 
-                    elementSelectorList.append('<li>'+yp_get_current_selector()+'</li>');
 
-                    // Create dom data.
+                    // Current Selector
+                    elementSelectorList.append('<li>'+get_current_selector()+'</li>');
+
+
+                    // Create dom data. For show DOM HTML in Design information tool
                     var clone = selectedEl.clone();
+
 
                     // Clean basic position relative style from clone
                     if(isDefined(clone.attr("style"))){
 
-                        var trimCloneStyle = clone.attr("style").replace("position:relative;","").replace("position: relative;","").replace("position: relative","");
+                        // Trim Style
+                        var trimCloneStyle = clone.attr("style").replace(/position:(\s*?)relative(\;?)|animation-fill-mode:(\s*?)(both|forwards|backwards|none)(\;?)/g,"");
 
-                        if(trimCloneStyle === ''){
+                        // Remove Style Attr if is empty.
+                        if(trimCloneStyle == ''){
                             clone.removeAttr("style");
                         }else{
                             clone.attr("style",trimCloneStyle);
@@ -795,20 +805,44 @@
 
                     }
 
-                    // Clean classes added by yp.
-                    clone.removeClass("yp-selected ui-draggable ui-draggable-handle");
-                    clone.html("...");
+                    // Remove Class Attr.
+                    clone.removeAttr("class");
 
-                    if(clone.attr("class").length == 0){
-                        clone.removeAttr("class");
+
+                    // Just add valid classes.
+                    for(x = 0; x < classSelfArray.length; x++){
+
+                        // addClass.
+                        clone.addClass(classSelfArray[x]);
+
                     }
 
+                    // Dom Content.
+                    clone.html("...");
+
+                    // Remove an attr added by editor attr.
+                    clone.removeAttr("data-default-selector");
+
+                    // Get.
                     var str = $("<div />").append(clone).html();
+
+                    // Set
                     $(".info-element-dom").val(str);
 
+
+                // Show there no element selected section.
                 }else{
+
                     $(".info-no-element-selected").show();
+
                     $(".info-element-selected-section").hide();
+
+                }
+
+                // Active wireframe if was active before open.
+                // Notice: This function close wireframe for getting colors and details of the elements.
+                if(washaveWireFrame === true){
+                    body.addClass("yp-wireframe-mode");
                 }
 
             }
@@ -823,7 +857,7 @@
             });
 
 
-            function yp_get_font_name(family){
+            function get_font_name(family){
 
                 if(family.indexOf(",") != -1){
                     family = family.split(",")[0];
@@ -846,7 +880,7 @@
                     $(".element-btn").trigger("click");
                     var max = $(window).height()-$(this).offset().top;
                     $(".advanced-info-box").css({"top":$(this).offset().top,"max-height": max});
-                    yp_update_infos('all');
+                    update_design_information('all');
                 }
 
                 $(".advanced-info-box").toggle();
@@ -880,7 +914,7 @@
 
 
             // Get all Animated Elements
-            function yp_anim_manager(){
+            function animation_manager(){
 
                 $(".yp-animate-manager [data-toggle='tooltipAnim']").tooltip("destroy");
                 $(".yp-anim-process-bar-delay,.yp-anim-process-bar").resizable('destroy');
@@ -895,11 +929,11 @@
                 iframe.find('[data-rule="animation-name"]').each(function(iX){
 
                     // Variables
-                    var data = $(this).html();
+                    var data = $(this).html().replace(/\/\*(.*?)\*\//g, "");
                     var device = $(this).attr("data-size-mode");
                     var array = data.split("{");
                     var selector = array[0];
-                    var animateName = $.trim(data.split("animation-name:")[1].replace(/\{/g,"").replace(/\}/g,"").replace("!important",""));
+                    var animateName = escape_data_value(data);
                     var animateDelayOr = "0s";
                     var animateTimeOr = "1s";
                     var mode = 'yp_onscreen';
@@ -942,16 +976,18 @@
                     // Get Element Name
                     var elementName = 'Undefined';
                     if(iframe.find(selectorClean).length > 0){
-                        elementName = removeDiacritics(upperCaseFirst(yp_tag_info(iframe.find(selectorClean)[0].nodeName, selectorClean)).replace(/\d+/g, ''));
+                        elementName = removeDiacritics(uppercase_first_letter(get_tag_information(selectorClean)).replace(/\d+/g, ''));
                     }
 
                     // Element Variables
-                    if(iframe.find("."+yp_id(selector)+"-animation-duration-style[data-size-mode='"+device+"']").length > 0){
-                        animateTimeOr = $.trim(iframe.find("."+yp_id(selector)+"-animation-duration-style[data-size-mode='"+device+"']").html().split("animation-duration:")[1].replace(/\{/g,"").replace(/\}/g,"").replace(/!important/g,""));
+                    if(iframe.find("."+get_id(selector)+"-animation-duration-style[data-size-mode='"+device+"']").length > 0){
+                        animateTimeOr = iframe.find("."+get_id(selector)+"-animation-duration-style[data-size-mode='"+device+"']").html();
+                        animateTimeOr = escape_data_value(animateTimeOr);
                     }
 
-                    if(iframe.find("."+yp_id(selector)+"-animation-delay-style[data-size-mode='"+device+"']").length > 0){
-                        animateDelayOr = $.trim(iframe.find("."+yp_id(selector)+"-animation-delay-style[data-size-mode='"+device+"']").html().split("animation-delay:")[1].replace(/\{/g,"").replace(/\}/g,"").replace(/!important/g,""));
+                    if(iframe.find("."+get_id(selector)+"-animation-delay-style[data-size-mode='"+device+"']").length > 0){
+                        animateDelayOr = iframe.find("."+get_id(selector)+"-animation-delay-style[data-size-mode='"+device+"']").html();
+                        animateDelayOr = escape_data_value(animateDelayOr);
                     }
 
                     var animateTime = $.trim(animateTimeOr.replace('/[^0-9\.]+/g','').replace(/ms/g,"").replace(/s/g,""));
@@ -1030,7 +1066,7 @@
                                 childAnimateTime = 1;
                             }
 
-                            var childAnimate = $.trim(animateName.split(",")[i].replace("!important",""));
+                            var childAnimate = $.trim(animateName.split(",")[i].replace(/\s+?!important/g,'').replace(/\;$/g,''));
 
                             childAnimateTime = childAnimateTime * 100;
                             childAnimateDelay = childAnimateDelay * 100;
@@ -1060,7 +1096,7 @@
                     }
 
                     // Append.
-                    $(".yp-anim-left-part-column").append("<div class='yp-anim-el-column yp-anim-el-column-"+yp_id(selectorClean)+"' data-anim-media-size='"+device+"'><span data-toggle='tooltipAnim' data-placement='right' title='"+selectorClean+"'>"+elementName+"</span> <label>"+modeName+"</label>"+deviceHTML+"</div>");
+                    $(".yp-anim-left-part-column").append("<div class='yp-anim-el-column yp-anim-el-column-"+get_id(selectorClean)+"' data-anim-media-size='"+device+"'><span data-toggle='tooltipAnim' data-placement='right' title='"+selectorClean+"'>"+elementName+"</span> <label>"+modeName+"</label>"+deviceHTML+"</div>");
 
                     $(".yp-anim-right-part-column").append("<div class='yp-animate-bar' id='yp-animate-bar-"+iX+"'><div class='yp-anim-process-bar-area' data-responsive='"+device+"' data-selector='"+selectorClean+"' data-selector-full='"+selector+"'><div class='yp-anim-process-inner'>"+animateContent+"</div><a class='yp-anim-add' data-toggle='tooltipAnim' data-placement='right' title='Add New Animate'></a></div>");
 
@@ -1077,29 +1113,29 @@
                     });
 
                 // Get current selector
-                var Cselector = yp_get_current_selector();
-                var Lineway = $(".yp-anim-el-column-"+yp_id(Cselector)+"[data-anim-media-size='"+yp_get_current_media_query()+"']");
+                var Cselector = get_current_selector();
+                var Lineway = $(".yp-anim-el-column-"+get_id(Cselector)+"[data-anim-media-size='"+get_current_media_query()+"']");
 
                 // has selected element and there not have same element in manager list
-                if(isDefined(Cselector) && Lineway.length == 0){
+                if(isDefined(Cselector) && Lineway.length === 0){
 
                     // Get Element Name
                     var elementName = 'Undefined';
                     if(iframe.find(Cselector).length > 0){
-                        elementName = removeDiacritics(upperCaseFirst(yp_tag_info(iframe.find(Cselector)[0].nodeName, Cselector)).replace(/\d+/g, ''));
+                        elementName = removeDiacritics(uppercase_first_letter(get_tag_information(Cselector)).replace(/\d+/g, ''));
                     }
 
                     var deviceHTML = '';
 
-                    if(yp_get_current_media_query() != 'desktop'){
-                    deviceHTML = " <label data-toggle='tooltipAnim' data-placement='right' title='This animation will only play on specific screen sizes.' class='yp-device-responsive'>Responsive</label><span class='yp-anim-media-details'>"+yp_get_current_media_query()+"</span>";
+                    if(get_current_media_query() != 'desktop'){
+                    deviceHTML = " <label data-toggle='tooltipAnim' data-placement='right' title='This animation will only play on specific screen sizes.' class='yp-device-responsive'>Responsive</label><span class='yp-anim-media-details'>"+get_current_media_query()+"</span>";
                     }
 
                     // Bar
-                    $(".yp-anim-left-part-column").append("<div class='yp-anim-el-column anim-active-row yp-anim-el-column-"+yp_id(Cselector)+"' data-anim-media-size='"+yp_get_current_media_query()+"'><span data-toggle='tooltipAnim' data-placement='right' title='"+Cselector+"'>"+elementName+"</span> <label>onscreen</label>"+deviceHTML+"</div>");
+                    $(".yp-anim-left-part-column").append("<div class='yp-anim-el-column anim-active-row yp-anim-el-column-"+get_id(Cselector)+"' data-anim-media-size='"+get_current_media_query()+"'><span data-toggle='tooltipAnim' data-placement='right' title='"+Cselector+"'>"+elementName+"</span> <label>onscreen</label>"+deviceHTML+"</div>");
 
                     // Adding
-                    $(".yp-anim-right-part-column").append("<div class='yp-animate-bar anim-active-row' id='yp-animate-bar-current'><div class='yp-anim-process-bar-area' data-responsive='"+yp_get_current_media_query()+"' data-selector='"+Cselector+"' data-selector-full='"+(Cselector+".yp_onscreen")+"'><div class='yp-anim-process-inner'></div><a class='yp-anim-add' data-toggle='tooltipAnim' data-placement='right' title='Add New Animate'></a></div>");
+                    $(".yp-anim-right-part-column").append("<div class='yp-animate-bar anim-active-row' id='yp-animate-bar-current'><div class='yp-anim-process-bar-area' data-responsive='"+get_current_media_query()+"' data-selector='"+Cselector+"' data-selector-full='"+(Cselector+".yp_onscreen")+"'><div class='yp-anim-process-inner'></div><a class='yp-anim-add' data-toggle='tooltipAnim' data-placement='right' title='Add New Animate'></a></div>");
 
                 }else{
                     Lineway.addClass("anim-active-row");
@@ -1121,7 +1157,7 @@
                         var s = parseFloat(w/100).toFixed(2);
 
                         var newTitle;
-                        if(that.hasClass("yp-anim-process-bar-delay") === true){
+                        if(that.hasClass(("yp-anim-process-bar-delay"))){
 
                             if(w == 10){
                                 s = "0";
@@ -1134,7 +1170,7 @@
                             }
 
                             // clean delay zero
-                            if(that.hasClass("yp-delay-zero") === true){
+                            if(that.hasClass(("yp-delay-zero"))){
                                 that.removeClass("yp-delay-zero").css("left","0");
                             }
 
@@ -1144,7 +1180,7 @@
 
                             if(that.prev(".yp-anim-process-bar-delay").hasClass("yp-delay-zero")){
                                 that.addClass("yp-anim-has-zero-delay");
-                            }else if(that.hasClass("yp-anim-has-zero-delay") === true){
+                            }else if(that.hasClass(("yp-anim-has-zero-delay"))){
                                 that.removeClass("yp-anim-has-zero-delay");
                             }
 
@@ -1165,7 +1201,7 @@
                     },
                     stop: function() {
 
-                        yp_animate_updater();
+                        update_animation_manager();
                         $(".yp-anim-process-bar-delay,.yp-anim-process-bar").tooltip("enable");
 
                     }
@@ -1183,7 +1219,7 @@
                     $("[data-toggle='tooltipAnim']").not(this).tooltip("hide");
                 });
 
-                if($(".yp-animate-bar").length == 0){
+                if($(".yp-animate-bar").length === 0){
                     $(".animation-manager-empty").show();
                 }else{
                     $(".animation-manager-empty").hide();
@@ -1192,7 +1228,7 @@
             }
 
 
-            function yp_animate_updater(){
+            function update_animation_manager(){
 
                 body.addClass("yp-animate-manager-mode");
 
@@ -1223,7 +1259,7 @@
 
                     // Get size
                     var size = $(this).find(".yp-anim-process-bar-area").attr("data-responsive");
-                    if(size === ''){
+                    if(size == ''){
                         size = 'desktop';
                     }
 
@@ -1237,21 +1273,21 @@
                         var s = w/100;
 
                         // If delay and its not a multiable line.
-                        if($(this).hasClass("yp-anim-process-bar-delay") === true && $(this).parent().find(".yp-anim-process-bar-delay").length == 1){
+                        if($(this).hasClass(("yp-anim-process-bar-delay")) && $(this).parent().find(".yp-anim-process-bar-delay").length == 1){
 
                             if(w == 10){
                                 s = "0";
                             }
 
                             // Update one delay.
-                            yp_insert_rule(selector, "animation-delay", s, 's', size);
+                            insert_rule(selector, "animation-delay", Math.round(s * 100) / 100, 's', size);
 
                         // If animate bar and not a multiable line.
-                        }else if($(this).hasClass("yp-anim-process-bar") === true && $(this).parent().find(".yp-anim-process-bar").length == 1){
+                        }else if($(this).hasClass(("yp-anim-process-bar")) && $(this).parent().find(".yp-anim-process-bar").length == 1){
 
                             // Update one duration.
-                            yp_insert_rule(selector, "animation-duration", s, 's', size);
-                            yp_insert_rule(selector, "animation-name", $(this).text(), '', size);
+                            insert_rule(selector, "animation-duration", s, 's', size);
+                            insert_rule(selector, "animation-name", $(this).text(), '', size);
                             sMultiNames.push($(this).text());
 
                         // If multi line and its delay or animate bar.
@@ -1262,10 +1298,12 @@
 
                                 offets = $(this).offset().left-$(this).parent(".yp-anim-process-inner").offset().left;
                                 offets = offets/100;
+                                offets = Math.round(offets * 100) / 100;
 
                                 if($(this).width() > 10){
 
                                     delay = $(this).width()/100;
+                                    delay = Math.round(delay * 100) / 100;
                                     sMulti.push(delay+offets+"s");
 
                                 }else{
@@ -1290,19 +1328,19 @@
 
                     });
 
-                    yp_option_change();
-
                     // Insert multi delays.
                     if(sMulti.length > 1){
-                        yp_insert_rule(selector, "animation-delay", sMulti.toString(), '', size);
-                        yp_insert_rule(selector, "animation-duration", sMultiDuration.toString(), '', size);
-                        yp_insert_rule(selector, "animation-name", sMultiNames.toString(), '', size);
+                        insert_rule(selector, "animation-delay", sMulti.toString(), '', size);
+                        insert_rule(selector, "animation-duration", sMultiDuration.toString(), '', size);
+                        insert_rule(selector, "animation-name", sMultiNames.toString(), '', size);
 
-                    }else if(sMultiNames.length == 0 && body.hasClass("yp-anim-removing")){
-                        yp_insert_rule(selector, "animation-delay", "disable", '', size);
-                        yp_insert_rule(selector, "animation-duration", "disable", '', size);
-                        yp_insert_rule(selector, "animation-name", "disable", '', size);
+                    }else if(sMultiNames.length === 0 && body.hasClass("yp-anim-removing")){
+                        insert_rule(selector, "animation-delay", "disable", '', size);
+                        insert_rule(selector, "animation-duration", "disable", '', size);
+                        insert_rule(selector, "animation-name", "disable", '', size);
                     }
+
+                    option_change();
 
                 });
 
@@ -1320,6 +1358,9 @@
 
             $(document).on("click", ".yp-anim-list-menu ul li", function(e) {
 
+                // Clean old.
+                get_selected_element().removeClass("yp_onscreen yp_hover yp_click yp_focus");
+
                 var p = $(".yp-anim-add.active");
 
                 $("body").addClass("yp-animate-manager-mode");
@@ -1330,13 +1371,13 @@
 
                 // Get size
                 var size = p.parents(".yp-anim-process-bar-area").attr("data-responsive");
-                if(size === ''){
+                if(size == ''){
                     size = 'desktop';
                 }
 
                 // If empty, so this new.
                 if(p.parent().find(".yp-anim-process-inner").is(':empty')){
-                    yp_insert_rule(selector, "animation-name", $(this).data("value"), '',size);
+                    insert_rule(selector, "animation-name", $(this).data("value"), '',size);
                 }else{
 
                     // push older animations
@@ -1359,17 +1400,17 @@
                     var offets = ((lastAnim.offset().left+lastAnim.width())-p.parent().find(".yp-anim-process-inner").offset().left)/100;
                     allDelays.push(offets+"s");
 
-                    yp_insert_rule(selector, "animation-name",allAnimNames.toString(), '',size);
-                    yp_insert_rule(selector, "animation-duration",allDurations.toString(), '',size);
-                    yp_insert_rule(selector, "animation-delay",allDelays.toString(), '',size);
+                    insert_rule(selector, "animation-name",allAnimNames.toString(), '',size);
+                    insert_rule(selector, "animation-duration",allDurations.toString(), '',size);
+                    insert_rule(selector, "animation-delay",allDelays.toString(), '',size);
 
                 }
 
                 $("body").removeClass("yp-animate-manager-mode");
 
                 setTimeout(function(){
-                    yp_anim_manager();
-                    yp_animate_updater();
+                    animation_manager();
+                    update_animation_manager();
                 },100);
 
             });
@@ -1427,19 +1468,19 @@
                     $(".yp-selector-mode").trigger("click");
                 }
 
-                if ($(this).hasClass("active") === true && $(".yp-sharp-selector-btn.active").length > 0) {
+                if ($(this).hasClass(("active")) && $(".yp-sharp-selector-btn.active").length > 0) {
                     $(".yp-sharp-selector-btn").removeClass("active");
                 }
                 
                 body.toggleClass("yp-body-selector-mode-active");
-                yp_clean();
+                clean();
 
             });
 
             // cache
-            window.scroll_width = yp_get_scroll_bar_width();
+            window.scroll_width = get_scroll_bar_width();
 
-            function yp_draw_responsive_handler() {
+            function draw_responsive_handle() {
 
                 if ($("body").hasClass("yp-responsive-device-mode") === false) {
                     return false;
@@ -1491,10 +1532,10 @@
                     window.rulerWasActive = true;
                 } else {
                     window.rulerWasActive = false;
-                    $(".yp-ruler-btn").trigger("click");
+                    $(".yp-ruler-btn").trigger("click").removeClass("active");
                 }
 
-                if ($(".yp-selector-mode").hasClass("active") === true && body.hasClass("yp-content-selected") === false) {
+                if ($(".yp-selector-mode").hasClass(("active")) && is_content_selected() === false) {
                     $(".yp-selector-mode").trigger("click");
 
                     window.SelectorDisableResizeRight = true;
@@ -1506,18 +1547,13 @@
 
                 if (window.responsiveModeRMDown === true) {
 
-                    var iframeLen = $(this).find("#iframe").length;
                     var hasClass = body.hasClass("yp-css-editor-active");
                     var ww = $(window).width();
 
-                    if (hasClass === true && iframeLen == 0) {
-                        e.pageX = e.pageX - 10;
-                    } else if (hasClass === true && iframeLen > 0) {
-                        e.pageX = e.pageX - 460;
-                    } else if (iframeLen > 0) {
-                        e.pageX = e.pageX - 59;
+                    if (hasClass === true) {
+                        e.pageX = e.pageX - 450 - 10;
                     } else {
-                        e.pageX = e.pageX - 20;
+                        e.pageX = e.pageX - window.leftbarWidth - 10;
                     }
 
                     // Min 320
@@ -1527,24 +1563,19 @@
 
                     // Max full-80 W
                     if (hasClass) {
-                        if (e.pageX > ww - 80 - 450 && iframeLen > 0) {
+                        if (e.pageX > ww - 80 - 450) {
                             e.pageX = ww - 80 - 450;
                         }
                     } else {
-                        if (e.pageX > ww - 80 - 49 && iframeLen > 0) {
+                        if (e.pageX > ww - 80 - 49) {
                             e.pageX = ww - 80 - 49;
                         }
                     }
 
-                    // Max full-80 W
-                    if (e.pageX > ww - 80 && iframeLen == 0) {
-                        e.pageX = ww - 80;
-                    }
-
                     $("#iframe").width(e.pageX);
 
-                    yp_draw_responsive_handler();
-                    yp_update_sizes();
+                    draw_responsive_handle();
+                    update_responsive_size_notice();
 
                 }
             });
@@ -1554,13 +1585,13 @@
                 if (window.responsiveModeRMDown === true) {
 
                     if(body.hasClass("yp-animate-manager-active")){
-                        yp_anim_manager();
+                        animation_manager();
                     }
 
                     window.responsiveModeRMDown = false;
 
                     if (window.SelectorDisableResizeBottom === false) {
-                        yp_draw();
+                        draw();
                     }
 
                     body.removeClass("yp-clean-look yp-responsive-resizing yp-responsive-resizing-right");
@@ -1574,7 +1605,7 @@
                     }
 
                     if (window.rulerWasActive === false) {
-                        $(".yp-ruler-btn").trigger("click");
+                        $(".yp-ruler-btn").addClass("active").trigger("click");
                     }
 
 
@@ -1583,13 +1614,13 @@
                             $(".yp-selector-mode").trigger("click");
                         }
                     }else{
-                        if($(".yp-selector-mode").hasClass("active") === true){
+                        if($(".yp-selector-mode").hasClass(("active"))){
                             $(".yp-selector-mode").trigger("click");
                         }
                     }
 
                     // Update options
-                    yp_insert_default_options();
+                    insert_default_options();
 
                     setTimeout(function() {
                         $(".eye-enable").removeClass("eye-enable");
@@ -1620,7 +1651,7 @@
                     $(".yp-ruler-btn").trigger("click");
                 }
 
-                if ($(".yp-selector-mode").hasClass("active") === true && body.hasClass("yp-content-selected") === false) {
+                if ($(".yp-selector-mode").hasClass(("active")) && is_content_selected() === false) {
                     $(".yp-selector-mode").trigger("click");
                     window.SelectorDisableResizeBottom = true;
                 }
@@ -1632,8 +1663,6 @@
 
                     if ($(this).find("#iframe").length > 0) {
                         e.pageY = e.pageY - 41;
-                    } else {
-                        e.pageY = e.pageY - 20;
                     }
 
                     // Min 320
@@ -1642,19 +1671,14 @@
                     }
 
                     // Max full-80 H
-                    if (e.pageY > $(window).height() - 80 - 31 && $(this).find("#iframe").length > 0) {
+                    if (e.pageY > $(window).height() - 80 - 31) {
                         e.pageY = $(window).height() - 80 - 31;
                     }
 
-                    // Max full-80 H
-                    if (e.pageY > $(window).height() - 80 && $(this).find("#iframe").length == 0) {
-                        e.pageY = $(window).height() - 80;
-                    }
-
                     $("#iframe").height(e.pageY);
-                    yp_draw_responsive_handler();
+                    draw_responsive_handle();
 
-                    yp_update_sizes();
+                    update_responsive_size_notice();
 
                 }
             });
@@ -1665,7 +1689,7 @@
                     window.responsiveModeBMDown = false;
 
                     if (window.SelectorDisableResizeBottom === false) {
-                        yp_draw();
+                        draw();
                     }
 
                     body.removeClass("yp-clean-look yp-responsive-resizing yp-responsive-resizing-bottom");
@@ -1688,13 +1712,13 @@
                             $(".yp-selector-mode").trigger("click");
                         }
                     }else{
-                        if($(".yp-selector-mode").hasClass("active") === true){
+                        if($(".yp-selector-mode").hasClass(("active"))){
                             $(".yp-selector-mode").trigger("click");
                         }
                     }
 
                     // Update options
-                    yp_insert_default_options();
+                    insert_default_options();
 
                     setTimeout(function() {
                         $(".eye-enable").removeClass("eye-enable");
@@ -1704,8 +1728,47 @@
 
             });
 
+        
+            var lastKeyUpAt = 0;
+
+            // Setting Shortcuts.
+            mainDocument.on("keyup", function(e) {
+
+                lastKeyUpAt = new Date();
+
+                // Getting current tag name.
+                var tag = e.target.tagName.toLowerCase();
+
+                // Control
+                var ctrlKey = false;
+                var tagType = false;
+                var shifted = e.shiftKey ? true : false;
+
+                // Check If is CTRL Key.
+                if ((e.ctrlKey === true || e.metaKey === true)) {
+                    ctrlKey = true;
+                }
+
+                // Stop if this target is input or textarea.
+                if (tag == 'input' || tag == 'textarea') {
+                    tagType = true;
+                }
+
+                // Multi selecting support
+                if(ctrlKey === false && tagType === false){
+                    body.removeClass("yp-control-key-down");
+                    iframe.find(".yp-multiple-selected").removeClass("yp-multiple-selected");
+                    iframe.find(".yp-selected-others-multiable-box").remove();
+                }
+
+            });
+
+
             // Setting Shortcuts.
             mainDocument.on("keydown", function(e) {
+
+                // get current time
+                var keyDownAt = new Date();
 
                 // Getting current tag name.
                 var tag = e.target.tagName.toLowerCase();
@@ -1714,25 +1777,38 @@
                 var code = e.keyCode || e.which;
 
                 // Control
-                var ctrlKey = 0;
-                var shifted = e.shiftKey;
-                var tagType = 0;
+                var ctrlKey = false;
+                var shifted = e.shiftKey ? true : false;
+                var tagType = false;
                 var selector;
 
-                // Stop If CTRL Keys hold.
-                if ((e.ctrlKey === true || e.metaKey === true)) {
-                    ctrlKey = 1;
+                // Check If is CTRL Key.
+                if ((e.ctrlKey === true || e.metaKey === true)){
+                    ctrlKey = true;
                 }
 
                 // Stop if this target is input or textarea.
                 if (tag == 'input' || tag == 'textarea') {
-                    tagType = 1;
+                    tagType = true;
+                }
+
+                // Hide. delete
+                if (code == 46 && ctrlKey === false && tagType === false) {
+                    insert_rule(null, "display", "none", '');
+                    option_change();
+                    clean();
+                    gui_update();
                 }
 
                 // ESC for custom selector.
-                if (code == 27 && ctrlKey == 0) {
+                if (code == 27 && ctrlKey === false) {
 
-                    if($(".sweet-alert").css("display") == 'none'){
+                    // Was resizing?
+                    if(is_resizing()){
+                        return false;
+                    }
+
+                    if($(".sweet-alert").css("display") == 'none' || $(".sweet-alert").length === 0){
 
                         if($(".yp-popup-background").css("display") != 'none'){
                             $(".yp-info-modal-close").trigger("click");
@@ -1749,14 +1825,35 @@
 
                 }
 
+                if(ctrlKey === false && tagType === false && shifted === true){
+
+                    setTimeout(function() {
+
+                        // Compare key down time with key up time
+                        if (+keyDownAt > +lastKeyUpAt && is_content_selected()){
+                            
+                            body.addClass("yp-control-key-down");
+
+                            var recentElement = iframe.find(".yp-recent-hover-element");
+
+                            if(recentElement.length > 0){
+                                recentElement.trigger("mouseover");
+                            }
+
+                        }
+
+                    }, 220);
+
+                }
+
+
                 // UP DOWN keys for move selected element
-                if (ctrlKey == 0 && tagType == 0){
+                if (ctrlKey === false && tagType === false){
                     if(code == 38 || code == 40 || code == 37 || code == 39){
-                        if($("body").hasClass("yp-content-selected") && $("body").hasClass("yp-dragging") === false){
+                        if(is_content_selected() && is_dragging() === false){
                             e.preventDefault();
 
-                            selector = yp_get_current_selector();
-                            var el = iframeBody.find(".yp-selected");
+                            var el = get_selected_element();
                             var t = parseInt(el.css("top"));
                             var l = parseInt(el.css("left"));
                             var r = parseInt(el.css("right"));
@@ -1785,10 +1882,10 @@
                             // Insert new data. TOP BOTTOM
                             if(code == 38 || code == 40){
 
-                                yp_insert_rule(selector, "top", t, '');
+                                insert_rule(null, "top", t, '');
 
-                                if (parseFloat(t) + parseFloat(b) != 0) {
-                                    yp_insert_rule(selector, "bottom", "auto", '');
+                                if (parseFloat(t) + parseFloat(b) !== 0) {
+                                    insert_rule(null, "bottom", "auto", '');
                                 }
                             
                             }
@@ -1796,10 +1893,10 @@
                             // Insert new data. LEFT RIGHT
                             if(code == 37 || code == 39){
 
-                                yp_insert_rule(selector, "left", l, '');
+                                insert_rule(null, "left", l, '');
 
-                                if (parseFloat(l) + parseFloat(r) != 0) {
-                                    yp_insert_rule(selector, "right", "auto", '');
+                                if (parseFloat(l) + parseFloat(r) !== 0) {
+                                    insert_rule(null, "right", "auto", '');
                                 }
 
                             }
@@ -1807,7 +1904,7 @@
                             var position = el.css("position");
 
                             if(position == 'static' || position == 'relative'){
-                                yp_insert_rule(selector, "position", "relative", '');
+                                insert_rule(null, "position", "relative", '');
                             }                    
 
                             if ($("#position-static").parent().hasClass("active") || $("#position-relative").parent().hasClass("active")){
@@ -1817,62 +1914,45 @@
                             // Set default values for top and left options.
                             if ($("li.position-option.active").length > 0) {
                                 $("#top-group,#left-group").each(function() {
-                                yp_set_default(".yp-selected", yp_id_hammer(this), false);
+                                set_default_value(get_option_id(this));
                             });
                             } else {
                                 $("li.position-option").removeAttr("data-loaded"); // delete cached data.
                             }
 
-                            yp_option_change();
+                            option_change();
 
                         }
                     }
                 }
 
                 // Enter
-                if (code == 13 && ctrlKey == 0) {
+                if (code == 13 && ctrlKey === false) {
                     if ($(e.target).is("#yp-set-animation-name")) {
                         $(".yp-animation-creator-start").trigger("click");
                     }
                 }
 
                 // Disable backspace key.
-                if (code == 8 && ctrlKey == 0 && tagType == 0) {
+                if (code == 8 && ctrlKey === false && tagType === false) {
                     e.preventDefault();
                     return false;
                 }
 
                 // Z Key
-                if (code == 90 && ctrlKey == 1 && tagType == 0) {
+                if (code == 90 && ctrlKey == true && tagType === false) {
+
                     e.preventDefault();
 
-                    if ($("body").hasClass("yp-anim-creator")) {
-                        swal({title: "Sorry.",text: l18_cantUndo,type: "warning",animation: false});
-                        return false;
-                    }
-
-                    if ($("body").hasClass("yp-animate-manager-active")) {
-                        swal({title: "Sorry.",text: l18_cantUndoAnimManager,type: "warning",animation: false});
-                        return false;
-                    }
-
-                    body.addClass("undo-clicked");
-
-                    editor.commands.exec("undo", editor);
-
-                    body.addClass("yp-css-data-trigger");
-                    $("#cssData").trigger("keyup");
-                    yp_draw();
-                    setTimeout(function() {
-                        yp_draw();
-                    }, 20);
+                    undo_changes();
 
                     return false;
+
                 }
 
 
                 // G Key | Toggle smart guide
-                if (code == 71 && ctrlKey == 1 && tagType == 0) {
+                if (code == 71 && ctrlKey === true && tagType === false) {
                     e.preventDefault();
 
                     body.toggleClass("yp-smart-guide-disabled");
@@ -1881,37 +1961,22 @@
 
 
                 // Y Key
-                if (code == 89 && ctrlKey == 1 && tagType == 0) {
+                if (code == 89 && ctrlKey === true && tagType === false) {
+
                     e.preventDefault();
 
-                    if ($("body").hasClass("yp-anim-creator")) {
-                        swal({title: "Sorry.",text: l18_cantUndo,type: "warning",animation: false});
-                        return false;
-                    }
-
-                    if ($("body").hasClass("yp-animate-manager-active")) {
-                        swal({title: "Sorry.",text: l18_cantUndoAnimManager,type: "warning",animation: false});
-                        return false;
-                    }
-
-                    editor.commands.exec("redo", editor);
-
-                    body.addClass("yp-css-data-trigger");
-                    $("#cssData").trigger("keyup");
-                    yp_draw();
-                    setTimeout(function() {
-                        yp_draw();
-                    }, 20);
+                    redo_changes();
 
                     return false;
+
                 }
 
                 // ESC
-                if (code == 27 && ctrlKey == 0 && tagType == 0) {
+                if (code == 27 && ctrlKey === false && tagType === false) {
 
                     e.preventDefault();
 
-                    if ($("body").hasClass("autocomplete-active") === false && $(".iris-picker:visible").length == 0 && ($(".sweet-alert").css("display") == 'none') || $(".sweet-alert").length == 0) {
+                    if ($("body").hasClass("autocomplete-active") === false && $(".iris-picker:visible").length === 0 && ($(".sweet-alert").css("display") == 'none') || $(".sweet-alert").length === 0) {
 
                         if (!$("body").hasClass("css-editor-close-by-editor")) {
 
@@ -1925,9 +1990,9 @@
                                 iframe.trigger("scroll");
                                 $("body").removeClass("yp-contextmenuopen");
                                 return false;
-                            } else if ($("body").hasClass("yp-content-selected")) {
-                                yp_clean();
-                                yp_resize();
+                            } else if (is_content_selected()) {
+                                clean();
+                                gui_update();
                                 return false;
                             }
 
@@ -1943,13 +2008,13 @@
                 }
 
                 // Space key go to selected element
-                if (code == 32 && ctrlKey == 0 && tagType == 0 && $("body").hasClass("yp-content-selected")) {
+                if (code == 32 && shifted === false && ctrlKey === false && tagType === false && is_content_selected()) {
 
                     e.preventDefault();
 
-                    var element = iframe.find(".yp-selected");
+                    var element = get_selected_element();
 
-                    if (iframe.find(".yp-selected-tooltip").hasClass("yp-fixed-tooltip") === true || iframe.find(".yp-selected-tooltip").hasClass("yp-fixed-tooltip-bottom") === true) {
+                    if (iframe.find(".yp-selected-tooltip").hasClass(("yp-fixed-tooltip")) || iframe.find(".yp-selected-tooltip").hasClass(("yp-fixed-tooltip-bottom"))) {
                         var height = parseInt($(window).height() / 2);
                         var selectedHeight = parseInt(element.height() / 2);
                         var scrollPosition = selectedHeight + element.offset().top - height;
@@ -1961,48 +2026,84 @@
                 }
 
                 // Space key select hovered element
-                if (code == 32 && ctrlKey == 0 && tagType == 0 && $("body").hasClass("yp-content-selected") === false && $(".yp-selector-mode").hasClass("active") === true) {
+                if (code == 32 && shifted === false && tagType === false && is_content_selected() === false && $(".yp-selector-mode").hasClass(("active"))) {
 
                     e.preventDefault();
 
                     if($("body").hasClass("yp-sharp-selector-mode-active")){
-                        selector = $.trim(yp_get_parents(iframe.find(".yp-selected"), "sharp"));
+                        selector = $.trim(get_parents(null, "sharp"));
                     }else{
-                        selector = $.trim(yp_get_parents(iframe.find(".yp-selected"), "default"));
+                        selector = $.trim(get_parents(null, "default"));
                     }
 
-                    yp_set_selector(selector,iframe.find(".yp-selected"));
+                    set_selector(selector,get_selected_element());
+
+                    return false;
+
+                }
+
+                // Space key select multiple hovered element
+                if (code == 32 && shifted === true && tagType === false && is_content_selected() === true && $(".yp-selector-mode").hasClass(("active"))) {
+
+                    e.preventDefault();
+
+                    var selectorCurrent = get_current_selector();
+                    var selectorNew = get_parents(iframe.find(".yp-multiple-selected"), "sharp");
+                    iframe.find(".yp-selected-others-multiable-box").remove();
+                    iframe.find(".yp-multiple-selected").addClass("yp-selected-others").removeClass("yp-multiple-selected");
+                    set_selector(selectorCurrent+","+selectorNew,get_selected_element());
 
                     return false;
 
                 }
 
                 // R Key
-                if (code == 82 && ctrlKey == 0 && tagType == 0) {
+                if (code == 82 && ctrlKey === false && tagType === false) {
+                    e.preventDefault();
+                    $(".yp-responsive-btn").trigger("click");
+                    return false;
+                }
+
+                // M Key
+                if (code == 77 && ctrlKey === false && tagType === false) {
                     e.preventDefault();
                     $(".yp-ruler-btn").trigger("click");
                     return false;
                 }
 
-                // H Key
-                if (code == 72 && ctrlKey == 0 && tagType == 0) {
+                // W Key
+                if (code == 87 && ctrlKey === false && tagType === false) {
                     e.preventDefault();
-                    yp_toggle_hide();
+                    $(".yp-wireframe-btn").trigger("click");
+                    return false;
+                }
+
+                // D Key
+                if (code == 68 && ctrlKey === false && tagType === false) {
+                    e.preventDefault();
+                    $(".info-btn").trigger("click");
+                    return false;
+                }
+
+                // H Key
+                if (code == 72 && ctrlKey === false && tagType === false) {
+                    e.preventDefault();
+                    css_editor_toggle();
                     return false;
                 }
 
                 // L Key
-                if (code == 76 && ctrlKey == 0 && tagType == 0 && $("body").hasClass("yp-dragging") === false) {
+                if (code == 76 && ctrlKey === false && tagType === false && is_dragging() === false) {
                     e.preventDefault();
                     body.toggleClass("yp-hide-borders-now");
                     return false;
                 }
 
                 // " Key
-                if (code == 162 && ctrlKey == 0 && tagType == 0 && $("body").hasClass("process-by-code-editor") === false) {
+                if (code == 162 && ctrlKey === false && tagType === false && $("body").hasClass("process-by-code-editor") === false) {
                     e.preventDefault();
 
-                    if ($("body").hasClass("yp-anim-creator")) {
+                    if (is_animate_creator()) {
                         swal({title: "Sorry.",text: l18_cantEditor,type: "warning",animation: false});
                         return false;
                     }
@@ -2012,10 +2113,10 @@
                 }
 
                 // " For Chrome Key
-                if (code == 192 && ctrlKey == 0 && tagType == 0 && $("body").hasClass("process-by-code-editor") === false) {
+                if (code == 192 && ctrlKey === false && tagType === false && $("body").hasClass("process-by-code-editor") === false) {
                     e.preventDefault();
 
-                    if ($("body").hasClass("yp-anim-creator")) {
+                    if (is_animate_creator()) {
                         swal({title: "Sorry.",text: l18_cantEditor,type: "warning",animation: false});
                         return false;
                     }
@@ -2025,7 +2126,7 @@
                 }
 
                 // F Key
-                if (code == 70 && ctrlKey == 0 && tagType == 0) {
+                if (code == 70 && ctrlKey === false && tagType === false) {
                     e.preventDefault();
                     $(".yp-button-target").trigger("click");
                     return false;
@@ -2073,8 +2174,7 @@
                     }
 
                     $(".css-editor-btn").trigger("click");
-                    $("body").removeClass("process-by-code-editor");
-                    $("body").addClass("css-editor-close-by-editor");
+                    $("body").removeClass("process-by-code-editor").addClass("css-editor-close-by-editor");
 
                 },
 
@@ -2088,21 +2188,42 @@
                 return false;
             });
 
+            function check_undoable_history(){
+
+                // Has Undo?
+                if(editor.session.getUndoManager().hasUndo() === false){
+                    $(".undo-btn").addClass("disabled");
+                }else{
+                    $(".undo-btn").removeClass("disabled");
+                }
+
+                // Has Redo?
+                if(editor.session.getUndoManager().hasRedo() === false){
+                    $(".redo-btn").addClass("disabled");
+                }else{
+                    $(".redo-btn").removeClass("disabled");
+                }
+
+            }
+
             // Keyup: Custom Slider Value
             $(".yp-after-css").keyup(function(e) {
 
-                yp_slide_action($(this).parent().parent().find(".wqNoUi-target"), $(this).parent().parent().find(".wqNoUi-target").attr("id").replace("yp-", ""), false);
+                if($(".lock-btn.active").length == 0 && e.originalEvent){
+                    var n = $(this).parent().parent().find(".wqNoUi-target");
+                    slide_action(n, n.attr("id").replace("yp-", ""), false, true);
+                }
 
             });
 
             $(".yp-ruler-btn").click(function() {
 
-                if($("body").hasClass("yp-content-selected") === false){
-                    yp_clean();
+                if(is_content_selected() === false){
+                    clean();
                 }
 
                 body.toggleClass("yp-metric-disable");
-                yp_resize();
+                gui_update();
 
                 // Disable selector mode.
                 if ($(this).hasClass("active") === false) {
@@ -2120,7 +2241,7 @@
             // Single selector
             $(".yp-sharp-selector-btn").click(function() {
                 body.toggleClass("yp-sharp-selector-mode-active");
-                if ($(".yp-selector-mode.active").length == 0) {
+                if ($(".yp-selector-mode.active").length === 0) {
                     $(".yp-selector-mode").trigger("click");
                 }
             });
@@ -2191,12 +2312,12 @@
                 var range = $(this).getCursorPosition();
                 var prev = $(this).parent().find(".yp-after-css-val");
                 
-                if(range == 0 && wasLastPrefix === false){
+                if(range === 0 && wasLastPrefix === false){
                     wasLastPrefix = true;
                     return true;
                 }
 
-                if(range != 0){
+                if(range !== 0){
                     wasLastPrefix = false;
                 }
 
@@ -2214,7 +2335,7 @@
                 // Number only
                 var numbers = $(this).val().replace(/[^0-9.,-]/g,'');
 
-                if(numbers.length == 0){
+                if(numbers.length === 0){
                     numbers = 0;
                 }
 
@@ -2237,7 +2358,7 @@
             });
 
             // Getting ID.
-            function yp_id_hammer(element) {
+            function get_option_id(element) {
                 return $(element).attr("id").replace("-group", "");
             }
 
@@ -2262,6 +2383,71 @@
                 }
             };
 
+
+            function redo_changes(){
+
+                if(is_resizing() || is_dragging() || body.hasClass("yp-processing-now")){
+                        return false;
+                    }
+
+                    if (is_animate_creator()) {
+                        swal({title: "Sorry.",text: l18_cantUndo,type: "warning",animation: false});
+                        return false;
+                    }
+
+                    if ($("body").hasClass("yp-animate-manager-active")) {
+                        swal({title: "Sorry.",text: l18_cantUndoAnimManager,type: "warning",animation: false});
+                        return false;
+                    }
+
+                    editor.commands.exec("redo", editor);
+
+                    body.addClass("yp-css-data-trigger");
+                    $("#cssData").trigger("keyup");
+
+                    draw();
+
+                    check_undoable_history();
+
+            }
+
+            function undo_changes(){
+
+                if(is_resizing() || is_dragging() || body.hasClass("yp-processing-now")){
+                        return false;
+                    }
+
+                    if (is_animate_creator()) {
+                        swal({title: "Sorry.",text: l18_cantUndo,type: "warning",animation: false});
+                        return false;
+                    }
+
+                    if ($("body").hasClass("yp-animate-manager-active")) {
+                        swal({title: "Sorry.",text: l18_cantUndoAnimManager,type: "warning",animation: false});
+                        return false;
+                    }
+
+                    editor.commands.exec("undo", editor);
+
+                    body.addClass("yp-css-data-trigger");
+                    $("#cssData").trigger("keyup");
+                    draw();
+
+                    // Update draggable after undo
+                    var elx = iframeBody.find(".yp-selected");
+                    if(elx.length > 0){
+
+                        if(elx.css("position") == 'static'){
+                            elx.css("position","relative");
+                        }
+
+                    }
+
+                    check_undoable_history();
+
+            }
+
+
             function isDefined(a){
                 if(typeof a !== typeof undefined && a !== false && a != '' && a != ' ' && a != 'undefined' && a !== null){
                     return true;
@@ -2271,7 +2457,7 @@
             }
 
             function isUndefined(a){
-                if(typeof a === typeof undefined || a === false || a == '' || a == ' ' || a == 'undefined' || a === null){
+                if(typeof a === typeof undefined || a === false || a === '' || a == ' ' || a == 'undefined' || a === null){
                     return true;
                 }else{
                     return false;
@@ -2302,7 +2488,7 @@
 
                 var posting = $.post( ajaxurl, {
                     action: "yp_preview_data_save",
-                    yp_data: yp_get_clean_css(true)
+                    yp_data: get_clean_css(true)
                 } );
 
                 // Done.
@@ -2319,13 +2505,13 @@
             /*                                                      */
             /* Creating tooltip, borders. Set as selected element.  */
             /* ---------------------------------------------------- */
-            function yp_set_selector(selector,selected) {
+            function set_selector(selector,selected) {
 
-                yp_clean();
+                clean();
 
                 window.setSelector = selector;
 
-                var element = iframe.find(selector.replace(":hover", "").replace(":focus", ""));
+                var element = iframe.find(get_foundable_query(selector,true,false,false));
 
                 body.attr("data-clickable-select", selector);
 
@@ -2335,63 +2521,74 @@
                 } else if(selected !== null){
                     selected.trigger("mouseover").trigger("click");
                 }else{
-                    element.first().trigger("mouseover").trigger("click");
+                    element.filter(":visible").first().trigger("mouseover").trigger("click");
                 }
 
                 if (element.length > 1) {
                     element.addClass("yp-selected-others");
-                    iframe.find(".yp-selected").removeClass("yp-selected-others");
+                    get_selected_element().removeClass("yp-selected-others");
                 }
 
                 body.addClass("yp-content-selected");
 
                 if(body.hasClass("yp-animate-manager-active")){
-                    yp_anim_manager();
+                    animation_manager();
                 }
 
                 if($(".advanced-info-box").css("display") == 'block' && $(".element-btn").hasClass("active")){
-                    yp_update_infos("element");
+                    update_design_information("element");
                 }
 
                 var tooltip = iframe.find(".yp-selected-tooltip");
                 tooltip.html("<small class='yp-tooltip-small'>" + iframe.find(".yp-selected-tooltip small").html() + "</small> " + selector);
 
+                // Use native hover system
                 if (selector.match(/:hover/g)) {
 
                     body.addClass("yp-selector-hover");
                     body.attr("data-yp-selector", ":hover");
                     $(".yp-contextmenu-hover").addClass("yp-active-contextmenu");
                     iframe.find(".yp-selected-tooltip span").remove();
-                    selector = selector.replace(":hover", "");
+                    selector = selector.replace(/:hover/g, "");
 
                 }
 
+                // Use native focus system
                 if (selector.match(/:focus/g)) {
 
                     body.addClass("yp-selector-focus");
                     body.attr("data-yp-selector", ":focus");
                     $(".yp-contextmenu-focus").addClass("yp-active-contextmenu");
                     iframe.find(".yp-selected-tooltip span").remove();
-                    selector = selector.replace(":focus", "");
+                    selector = selector.replace(/:focus/g, "");
 
                 }
 
-                yp_toggle_hide(true); // show if hide
+                css_editor_toggle(true); // show if hide
 
                 body.attr("data-clickable-select", selector);
 
-                yp_insert_default_options();
+                insert_default_options();
 
-                yp_resize();
+                gui_update();
 
-                yp_draw();
+                draw();
+
+                if(body.hasClass("yp-animate-manager-active")){
+                    animation_manager();
+                }
+
+                // Update the element informations.
+                if($(".advanced-info-box").css("display") == 'block' && $(".element-btn").hasClass("active")){
+                    update_design_information("element");
+                }
 
                 window.setSelector = false;
 
             }
 
             // Get All Data and set to editor.
-            editor.setValue(yp_get_clean_css(true));
+            editor.setValue(get_clean_css(true));
             editor.getSession().setUndoManager(new ace.UndoManager());
 
             // Tooltip
@@ -2399,7 +2596,22 @@
                 animation: false,
                 container: ".yp-select-bar",
                 html: true
+            }).on('shown.bs.tooltip', function () {
+                
+                // Don't show if popover visible
+                if($(".popover").length > 0){
+                    $(this).tooltip("hide");
+                }
+
             });
+
+            $('[data-toggle="tooltipTopBottom"]').tooltip({
+                animation: false,
+                container: ".yp-select-bar",
+                 template: '<div class="tooltip hidden-on-fullscreen"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>',
+                html: true
+            });
+
             $('[data-toggle="tooltip-bar"]').tooltip({
                 animation: false,
                 container: "body",
@@ -2415,17 +2627,29 @@
                 trigger: 'hover',
                 container: ".yp-select-bar"
             });
+
+            $('.yp-option-group,.yp-advanced-option').on('shown.bs.popover', function () {
+                
+                // Don't show if popover visible
+                if(parseFloat($(".popover").css("top")) < 80){
+                    $(this).popover("hide");
+                }
+
+            });
+
             $(".yp-none-btn").tooltip({
                 animation: false,
                 container: '.yp-select-bar',
                 title: l18_none
             });
+
             $(".yp-element-picker").tooltip({
                 animation: false,
                 placement: 'bottom',
                 container: '.yp-select-bar',
                 title: l18_picker
             });
+
             $('[data-toggle="tooltipAnimGenerator"]').tooltip({
                 animation: false,
                 html: true
@@ -2434,7 +2658,7 @@
 
             // CSSEngine is javascript based jquery
             // plugin by WaspThemes Team.
-            $(document).CallCSSEngine(yp_get_clean_css(true));
+            $(document).CallCSSEngine(get_clean_css(true));
 
             // Set Class to Body.
             body.addClass("yp-yellow-pencil");
@@ -2459,7 +2683,7 @@
             });
 
             $("#yp-set-animation-name").keyup(function() {
-                $(this).val(yp_id_basic($(this).val()));
+                $(this).val(get_basic_id($(this).val()));
             });
 
             // Fullscreen Editor
@@ -2477,26 +2701,21 @@
             // If There not have any selected item
             // and if mouseover on options, so hide borders.
             $(".top-area-btn-group,.yp-select-bar,.metric").hover(function() {
-                if (body.hasClass("yp-content-selected") === false) {
-                    yp_clean();
+                if (is_content_selected() === false) {
+                    clean();
                 }
             });
 
-            function yp_anim_scene_resize() {
+            function update_animate_creator_view() {
                 if (!$(".anim-bar").hasClass("anim-bar-dragged")) {
                     $(".anim-bar").css("left", parseFloat($(window).width() / 2) - ($(".anim-bar").width() / 2));
                 }
             }
 
             // Only number
-            $(document).on('keydown', '.scenes .scene input', function(e){
-                if($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) || /65|67|86|88/.test(e.keyCode) && (!0 === e.ctrlKey || !0 === e.metaKey) || 35 <= e.keyCode && 40 >= e.keyCode || (e.shiftKey || 48 > e.keyCode || 57 < e.keyCode) && (96 > e.keyCode || 105 < e.keyCode) !== -1){
-                        e.preventDefault();
-                    }
-            });
+            $(document).on('keydown keyup', '.scenes .scene input', function(e){
 
-            // Max 100, min 0
-            $(document).on('blur', '.scenes .scene input', function(e) {
+                $(this).val(number_filter($(this).val().replace(/\-/g,'')));
 
                 if (parseFloat($(this).val()) > 100) {
                     $(this).val('100');
@@ -2509,14 +2728,14 @@
             });
 
             // Last scene always 100
-            $(document).on('blur', '.scenes .scene:not(.scene-add):last input', function(e) {
+            $(document).on('keyup keydown blur', '.scenes .scene:not(.scene-add):last input', function(e) {
 
                 $(this).val('100');
 
             });
 
             // First scene always 0
-            $(document).on('blur', '.scenes .scene:first-child input', function(e) {
+            $(document).on('keyup keydown blur', '.scenes .scene:first-child input', function(e) {
 
                 $(this).val('0');
 
@@ -2524,7 +2743,7 @@
 
             function yp_create_anim() {
 
-                if (iframe.find(".yp-anim-scenes style").length == 0) {
+                if (iframe.find(".yp-anim-scenes style").length === 0) {
                     swal({title: "Sorry.",text: l18_allScenesEmpty,type: "warning",animation: false});
                     return false;
                 }
@@ -2532,11 +2751,10 @@
                 // Variables
                 var total = $(".scenes .scene").length;
                 var scenesData = '';
+                var i;
 
                 // Create animation from data.
-                for (var i = 1; i < total; i++) {
-
-                    //if(iframe.find(".yp-anim-scenes").find(".style-scene-"+i).length > 0 || i == 1){
+                for (i = 1; i < total; i++) {
 
                     scenesData = scenesData + $(".scenes .scene-" + i + " input").val() + "% {";
 
@@ -2545,8 +2763,6 @@
                     });
 
                     scenesData = scenesData + "}";
-
-                    //}
 
                 }
 
@@ -2559,11 +2775,12 @@
                 // wait
                 var watingForAdd = [];
                 var added = '{';
+                var x,lineData,rules,countT,count;
 
-                for (var i = 1; i < scenesDataReverseArray.length; i++) {
+                for (i = 1; i < scenesDataReverseArray.length; i++) {
 
                     // Anim part example data.
-                    var lineData = $.trim(scenesDataReverseArray[i]);
+                    lineData = $.trim(scenesDataReverseArray[i]);
                     lineData = lineData.split("{")[1].split("}")[0];
 
                     // If is last ie first. ie 0%, no need.
@@ -2573,7 +2790,7 @@
 
                         for (var k = 0; k < watingForAdd.length; k++) {
 
-                            var countT = 0;
+                            countT = 0;
 
                             // Search in before
                             if (added.match("{" + watingForAdd[k] + ":") !== null) {
@@ -2584,9 +2801,9 @@
                                 countT = countT + parseInt(added.match(";" + watingForAdd[k] + ":").length);
                             }
 
-                            if (countT == 0) {
+                            if (countT === 0) {
 
-                                var el = iframe.find(".yp-selected");
+                                var el = get_selected_element();
                                 var val = el.css(watingForAdd[k]);
 
                                 if (watingForAdd[k] == 'top' && val == 'auto') {
@@ -2624,14 +2841,14 @@
                     }
 
                     // Rules of this part.
-                    var rules = lineData.split(";");
+                    rules = lineData.split(";");
 
                     // get only rules names.
-                    for (var x = 0; x < rules.length; x++) {
+                    for (x = 0; x < rules.length; x++) {
                         if (rules[x].split(":")[0] != '') {
 
                             var founded = rules[x].split(":")[0];
-                            var count = 0;
+                            count = 0;
 
                             // Search in before
                             if (scenesData.match("{" + founded + ":") !== null) {
@@ -2658,20 +2875,20 @@
                 var rulesNames = [];
                 var rulesValues = [];
 
-                for (var i = 0; i < scenesDataNormalArray.length; i++) {
+                for (i = 0; i < scenesDataNormalArray.length; i++) {
 
                     // Anim part example data.
-                    var lineData = $.trim(scenesDataNormalArray[i]);
+                    lineData = $.trim(scenesDataNormalArray[i]);
 
                     if (lineData != '' && lineData != ' ') {
 
                         lineData = lineData.split("{")[1].split("}")[0];
 
                         // Rules of this part.
-                        var rules = lineData.split(";");
+                        rules = lineData.split(";");
 
                         // Each all rules
-                        for (var x = 0; x < rules.length; x++) {
+                        for (x = 0; x < rules.length; x++) {
                             if (rules[x].split(":")[0] != '') {
 
                                 // Get rule name
@@ -2684,7 +2901,7 @@
                                 }
 
                                 // Clean important prefix.
-                                foundedValue = $.trim(foundedValue).replace(/!important/g, "");
+                                foundedValue = $.trim(foundedValue).replace(/\s+?!important/g,'').replace(/\;$/g,'');
 
                                 // If same rule have in rulesNames, get index.
                                 var index = rulesNames.indexOf(foundedName);
@@ -2710,7 +2927,7 @@
                             var current = rulesNames[t];
                             var currentVal = rulesValues[t];
 
-                            var countT = 0;
+                            countT = 0;
 
                             // Search in this line
                             if (updatedLine.match("{" + current + ":") !== null) {
@@ -2776,13 +2993,15 @@
                     return false;
                 }
 
+                var delay,delayWait;
+
                 body.addClass("yp-hide-borders-now");
 
                 // Clean scene classes.
                 var newClassList = $.trim($("body").attr("class").replace(/yp-scene-[0-9]/g, ''));
                 $("body").attr("class", newClassList);
 
-                var newClassList = $.trim(iframeBody.attr("class").replace(/yp-scene-[0-9]/g, ''));
+                newClassList = $.trim(iframeBody.attr("class").replace(/yp-scene-[0-9]/g, ''));
                 iframeBody.attr("class", newClassList);
 
                 // AddClass
@@ -2796,15 +3015,15 @@
 
                 // Getting duration.
                 if ($('#animation-duration-value').val().indexOf(".") != -1) {
-                    var delay = $('#animation-duration-value').val().split(".")[0];
+                    delay = $('#animation-duration-value').val().split(".")[0];
                 } else {
-                    var delay = $('#animation-duration-value').val();
+                    delay = $('#animation-duration-value').val();
                 }
 
                 if ($('#animation-duration-after').val() == 's') {
-                    var delayWait = delay * 1000; // second to milisecond.
+                    delayWait = delay * 1000; // second to milisecond.
                 } else {
-                    var delayWait = delay; //milisecond
+                    delayWait = delay; //milisecond
                 }
 
                 delayWait = delayWait - 10;
@@ -2818,8 +3037,10 @@
                 element.html("Playing"+'<span style="color:#B73131 !important;" class="dashicons dashicons-controls-play"></span>');
                 $(".anim-play").html("Playing"+'<span style="color:#B73131 !important;" class="dashicons dashicons-controls-play"></span>');
 
+                clear_animation_timer();
+
                 // Wait until finish. END.
-                setTimeout(function() {
+                window.animationTimer4 = setTimeout(function() {
 
                     element.html("Play"+'<span class="dashicons dashicons-controls-play"></span>');
                     $(".anim-play").html("Play"+'<span class="dashicons dashicons-controls-play"></span>');
@@ -2829,7 +3050,9 @@
 
                     $(".scenes .scene-" + willActive + "").trigger("click");
 
-                    yp_draw();
+                    element_animation_end();
+
+                    draw();
 
                 }, delayWait);
 
@@ -2891,7 +3114,8 @@
 
                     // Set animation name
                     setTimeout(function() {
-                        yp_insert_rule(yp_get_current_selector(), "animation-name", animName, '');
+                        insert_rule(null, "animation-name", animName, '');
+                        insert_rule(null, "animation-fill-mode", 'both', '');
                         $("li.animation-option").removeAttr("data-loaded");
                         $("#yp-animation-name").val(animName).trigger("blur");
                     }, 300);
@@ -2900,45 +3124,16 @@
 
                 }
 
-                // Warning.
-                if ($("#yp-set-animation-name").val().length == 0) {
-                    $("#set-animation-name-group").popover({
-                        title: l18_warning,
-                        content: l18_setAnimName,
-                        trigger: 'click',
-                        placement: "left",
-                        container: ".yp-select-bar",
-                        html: true
-                    }).popover("show");
-                    return false;
-                } else {
-                    $("#set-animation-name-group").popover("destroy");
-                }
-
-                if ($("#yp-animation-name-data option[value='" + $("#yp-set-animation-name").val() + "']").length > 0) {
-                    $("#set-animation-name-group").popover({
-                        title: l18_warning,
-                        content: l18_animExits,
-                        trigger: 'click',
-                        placement: "left",
-                        container: ".yp-select-bar",
-                        html: true
-                    }).popover("show");
-                    return false;
-                } else {
-                    $("#set-animation-name-group").popover("destroy");
-                }
-
                 // append anim data area.
-                if (iframe.find(".yp-anim-scenes").length == 0) {
+                if (iframe.find(".yp-anim-scenes").length === 0) {
 
                     // Append style area.
-                    if (iframe.find(".yp-styles-area").length <= 0) {
+                    if (the_editor_data().length <= 0) {
                         iframeBody.append("<div class='yp-styles-area'></div>");
                     }
 
                     // Append anim style area.
-                    iframe.find(".yp-styles-area").after('<div class="yp-anim-scenes"><div class="scene-1"></div><div class="scene-2"></div><div class="scene-3"></div><div class="scene-4"></div><div class="scene-5"></div><div class="scene-6"></div></div><div class="animate-test-drive"></div>');
+                    the_editor_data().after('<div class="yp-anim-scenes"><div class="scene-1"></div><div class="scene-2"></div><div class="scene-3"></div><div class="scene-4"></div><div class="scene-5"></div><div class="scene-6"></div></div><div class="animate-test-drive"></div>');
 
                 }
 
@@ -2958,7 +3153,7 @@
                 $(".scenes .scene:first-child").addClass("scene-active");
 
                 // Resize scenes area.
-                yp_anim_scene_resize();
+                update_animate_creator_view();
 
                 // Back to list.
                 $(".animation-option.active > h3").trigger("click");
@@ -2974,10 +3169,7 @@
                 $(".yp-animation-creator-start").text(l18_create);
 
                 // Clean classes.
-                body.removeClass("yp-anim-creator");
-                body.removeAttr("data-anim-scene");
-                body.removeClass("yp-anim-link-toggle");
-                body.removeClass("yp-animate-test-playing");
+                body.removeClass("yp-anim-creator").removeAttr("data-anim-scene").removeClass("yp-anim-link-toggle").removeClass("yp-animate-test-playing");
 
                 body.removeAttr("data-anim-scene");
 
@@ -2985,35 +3177,27 @@
                 var newClassList = $.trim($("body").attr("class").replace(/yp-scene-[0-9]/g, ''));
                 $("body").attr("class", newClassList);
 
-                var newClassList = $.trim(iframeBody.attr("class").replace(/yp-scene-[0-9]/g, ''));
+                newClassList = $.trim(iframeBody.attr("class").replace(/yp-scene-[0-9]/g, ''));
                 iframeBody.attr("class", newClassList);
 
                 // Clean all scene data.
-                iframe.find(".yp-anim-scenes .scene-1").empty();
-                iframe.find(".yp-anim-scenes .scene-2").empty();
-                iframe.find(".yp-anim-scenes .scene-3").empty();
-                iframe.find(".yp-anim-scenes .scene-4").empty();
-                iframe.find(".yp-anim-scenes .scene-5").empty();
-                iframe.find(".yp-anim-scenes .scene-6").empty();
+                iframe.find(".yp-anim-scenes .scene-1,.yp-anim-scenes .scene-2,.yp-anim-scenes .scene-3,.yp-anim-scenes .scene-4,.yp-anim-scenes .scene-5,.yp-anim-scenes .scene-6").empty();
 
                 if ($(".yp-anim-cancel-link").length > 0) {
                     $(".yp-anim-cancel-link").trigger("click");
                 }
 
                 // Set default data again.
-                yp_insert_default_options();
+                insert_default_options();
 
                 // Delete 3,4,5,6scenes.
-                $(".anim-bar .scenes .scene-6 .scene-delete").trigger("click");
-                $(".anim-bar .scenes .scene-5 .scene-delete").trigger("click");
-                $(".anim-bar .scenes .scene-4 .scene-delete").trigger("click");
-                $(".anim-bar .scenes .scene-3 .scene-delete").trigger("click");
+                $(".anim-bar .scenes .scene-6 .scene-delete,.anim-bar .scenes .scene-5 .scene-delete,.anim-bar .scenes .scene-4 .scene-delete,.anim-bar .scenes .scene-3 .scene-delete").trigger("click");
 
                 // delete test data
                 iframe.find(".animate-test-drive").empty();
 
-                yp_resize();
-                yp_draw();
+                gui_update();
+                draw();
 
             }
 
@@ -3031,7 +3215,7 @@
 
                 if (next == 6) {
                     $(".scene-add").show();
-                    yp_anim_scene_resize();
+                    update_animate_creator_view();
                 }
 
                 // Delete all styles for this scene.
@@ -3093,7 +3277,7 @@
                     if (next == 6) {
                         $(".scene-add").hide();
                     }
-                    yp_anim_scene_resize();
+                    update_animate_creator_view();
                     return false;
                 }
 
@@ -3108,7 +3292,7 @@
                 var newClassList = $.trim($("body").attr("class").replace(/yp-scene-[0-9]/g, ''));
                 $("body").attr("class", newClassList);
 
-                var newClassList = $.trim(iframeBody.attr("class").replace(/yp-scene-[0-9]/g, ''));
+                newClassList = $.trim(iframeBody.attr("class").replace(/yp-scene-[0-9]/g, ''));
                 iframeBody.attr("class", newClassList);
 
                 // Add new scene class.
@@ -3118,15 +3302,15 @@
                 var currentVal = parseInt($(this).attr("data-scene").replace("scene-", ""));
 
                 for (currentVal > 1; currentVal--;) {
-                    if (currentVal != 0) {
+                    if (currentVal !== 0) {
                         body.addClass("yp-scene-" + currentVal);
                     }
                 }
 
-                yp_insert_default_options();
+                insert_default_options();
                 $(".yp-disable-btn.active").trigger("click");
 
-                yp_draw();
+                draw();
 
             });
 
@@ -3237,7 +3421,9 @@
             // Yellow Pencil Toggle Advanced Boxes. Used For Parallax, Transform.
             $(".yp-advanced-link").click(function() {
 
+                // Adding animation link
                 if ($(this).hasClass("yp-add-animation-link")) {
+
                     body.toggleClass("yp-anim-link-toggle");
                     $(this).toggleClass("yp-anim-cancel-link");
 
@@ -3252,15 +3438,15 @@
 
                     // update animation ame.
                     if($(this).hasClass("yp-add-animation-link")){
-                        var slctor = yp_get_current_selector();
-                        var animID = removeDiacritics(yp_id_basic(upperCaseFirst(yp_tag_info(iframe.find(slctor)[0].nodeName, slctor)))+"Anim");
+                        var slctor = get_current_selector();
+                        var animID = removeDiacritics(get_basic_id(uppercase_first_letter(get_tag_information(slctor)))+"_Animation_"+Math.floor((Math.random() * 99)));
                         $("#yp-set-animation-name").val(animID).trigger("focus");
                     }
 
                     var text = $('.yp-add-animation-link').text();
                     $('.yp-add-animation-link').text(text == l18_CreateAnimate ? l18_cancel : l18_CreateAnimate);
 
-                    yp_resize();
+                    gui_update();
                     return false;
                 }
 
@@ -3272,7 +3458,7 @@
 
                 $(this).toggleClass("yp-on");
 
-                yp_resize();
+                gui_update();
 
             });
 
@@ -3282,21 +3468,21 @@
                 $(this).toggleClass("active");
                 $(".yp_background_assets").toggle();
 
-                yp_resize();
+                gui_update();
 
             });
 
             $(".top-area-btn").click(function(){
                 setTimeout(function(){
                     window.FrameleftOffset = undefined;
-                    yp_draw_responsive_handler();
+                    draw_responsive_handle();
                 },50);
             });
 
             // Active Class For undo, redo, CSS Editor buttons.
             $(".top-area-btn:not(.undo-btn):not(.redo-btn):not(.css-editor-btn)").click(function(){
 
-                if($("body").hasClass("yp-anim-creator") === false){
+                if(is_animate_creator() === false){
 
                     $(this).toggleClass("active");
                     $(this).tooltip("hide");
@@ -3312,29 +3498,21 @@
 
             // Fullscreen
             $(".fullscreen-btn").click(function() {
-                yp_toggle_full_screen(document.body);
+                toggle_fullscreen(document.body);
             });
 
             // Undo
             $(".undo-btn").click(function() {
-                editor.commands.exec("undo", editor);
-                body.addClass("yp-css-data-trigger undo-clicked");
-                $("#cssData").trigger("keyup");
-                yp_draw();
-                setTimeout(function() {
-                    yp_draw();
-                }, 20);
+
+                undo_changes();
+
             });
 
             // Redo
             $(".redo-btn").click(function() {
-                editor.commands.exec("redo", editor);
-                body.addClass("yp-css-data-trigger");
-                $("#cssData").trigger("keyup");
-                yp_draw();
-                setTimeout(function() {
-                    yp_draw();
-                }, 20);
+
+                redo_changes();
+
             });
 
             // Background Assents Loading On Scrolling.
@@ -3363,7 +3541,7 @@
                 $(this).toggleClass("active");
                 $(this).parent().find(".yp_flat_colors_area").toggle();
 
-                yp_resize();
+                gui_update();
 
             });
 
@@ -3373,7 +3551,7 @@
                 $(this).toggleClass("active");
                 $(this).parent().find(".yp_meterial_colors_area").toggle();
 
-                yp_resize();
+                gui_update();
 
             });
 
@@ -3383,7 +3561,7 @@
                 $(this).parent().find(".yp_nice_colors_area").toggle();
                 $(this).toggleClass("active");
 
-                yp_resize();
+                gui_update();
 
             });
 
@@ -3400,6 +3578,7 @@
                 window.send_to_editor = function(output) {
 
                     var imgurl = output.match(/src="(.*?)"/g);
+                    var imgNew = '';
 
                     imgurl = imgurl.toString().replace('src="', '').replace('"', '');
 
@@ -3407,7 +3586,6 @@
                     if (imgurl != '') {
 
                         var y = imgurl.split("-").length - 1;
-                        var imgNew = '';
 
                         if (imgurl.split("-")[y].match(/(.*?)x(.*?)\./g) !== null) {
 
@@ -3466,16 +3644,18 @@
             };
 
             // Trigger Options Update.
-            yp_option_update();
+            window.option_changeType = 'auto';
+            option_change();
+            window.option_changeType = 'default';
 
             // The title
             $("title").html("Yellow Pencil: " + iframe.find("title").html());
 
             // Check before exit page.
-            window.onbeforeunload = yp_confirm_exit;
+            window.onbeforeunload = confirm_exit;
 
             // exit confirm
-            function yp_confirm_exit() {
+            function confirm_exit() {
 
                 if ($(".yp-save-btn").hasClass("waiting-for-save")) {
                     return confirm(l18_sure);
@@ -3513,7 +3693,7 @@
                 // Send Ajax If Not Demo Mode.
                 if (!$("body").hasClass("yp-yellow-pencil-demo-mode")) {
 
-                    var data = yp_get_clean_css(true);
+                    var data = get_clean_css(true);
 
                     // Lite Version Checking.
                     var status = true;
@@ -3522,8 +3702,6 @@
 
                         if (
                             data.indexOf("font-family:") != -1 ||
-                            data.indexOf("text-shadow:") != -1 ||
-                            data.indexOf("text-transform:") != -1 ||
                             data.indexOf("background-color:") != -1 ||
                             data.indexOf("background-image:") != -1 ||
                             data.indexOf("animation-name:") != -1 ||
@@ -3557,7 +3735,7 @@
                     if (body.hasClass("yp-need-to-process")) {
 
                         if (status) {
-                            yp_process(false, id, type);
+                            process(false, id, type);
                         }
 
                     } else {
@@ -3570,7 +3748,7 @@
                                 yp_id: id,
                                 yp_stype: type,
                                 yp_data: data,
-                                yp_editor_data: yp_get_styles_area()
+                                yp_editor_data: get_editor_data()
 
                             });
 
@@ -3600,57 +3778,165 @@
 
             });
 
-            function yp_check_with_parents(element, css, value, comparison) {
+
+            // Be sure there not have any element animating.
+            function check_with_parents(element, css, value, comparison){
+
                 var checkElements = element.add(element.parents());
-                var isVal = false;
-                checkElements.each(function() {
-                    if (comparison == 'equal') {
-                        if ($(this).css(css) === value) {
-                            isVal = true;
+                var animation_fill_mode,el,returnValue = true;
+
+                checkElements.each(function(){
+
+                    el = $(this);
+
+                    animation_fill_mode = null;
+
+                    // Be sure there not have any element animating.
+                    if(el.hasClass("yp-animating") === false){
+
+                        // nowdays a lot website using animation on page loads.
+                        // the problem is a lot animations has transfrom, opacity etc.
+                        // This break the system and can't get real value.
+                        // So I will fix this issue : ).
+                        animation_fill_mode = el.css("animation-fill-mode");
+
+                        // Disable it until we get real value.
+                        if(animation_fill_mode == 'forwards' || animation_fill_mode == 'both'){
+
+                            // Set none for animation-fill-mode and be sure. using promise.
+                            $.when(el.css("animation-fill-mode","none")).promise().always(function() {
+
+                                // Continue after done.
+                                returnValue = check_with_parents_last(el, css, value, comparison, animation_fill_mode);
+
+                                if(returnValue === true){
+                                    return false;
+                                }
+
+                            });
+
+                        }else{
+
+                            // Continue to last part.
+                            returnValue = check_with_parents_last(el, css, value, comparison);
+
+                            if(returnValue === true){
+                                return false;
+                            }
+
+                        }
+
+                    }else{
+
+                        // Continue to last part.
+                        returnValue = check_with_parents_last(el, css, value, comparison);
+
+                        if(returnValue === true){
                             return false;
                         }
-                    } else {
-                        if ($(this).css(css) !== value) {
-                            isVal = true;
-                            return false;
-                        }
+
                     }
+
                 });
-                return isVal;
+                
+                return returnValue;
+
             }
 
+
+            // just an part of check_with_parents function.
+            function check_with_parents_last(el, css, value, comparison, animation_fill_mode){
+
+                var isVal = false;
+
+                // Get CSS
+                var cssValue = el.css(css);
+
+                // If not none but and not have any transfrom.
+                if(css == 'transfrom' && cssValue != 'none' && cssValue == 'matrix(1, 0, 0, 1, 0, 0)'){
+                    cssValue = 'none';
+                }
+
+                if (comparison == '==') {
+
+                    if (cssValue === value) {
+                        if(animation_fill_mode !== undefined){el.css("animation-fill-mode",animation_fill_mode);}
+                        return true;
+
+                    }
+
+                } else {
+
+                    if (cssValue !== value) {
+                        if(animation_fill_mode !== undefined){el.css("animation-fill-mode",animation_fill_mode);}
+                        return true;
+
+                    }
+
+                }
+
+                if(animation_fill_mode !== undefined){el.css("animation-fill-mode",animation_fill_mode);}
+                return isVal;
+
+            }
+
+
+
             // Hide contextmenu on scroll.
+            var timerx = null;
             iframe.scroll(function() {
 
                 if (iframe.find(".context-menu-active").length > 0) {
-                    iframe.find(".yp-selected").contextMenu("hide");
+                    get_selected_element().contextMenu("hide");
                 }
 
-                if(body.hasClass("yp-content-selected")){
-                    if (yp_check_with_parents(iframe.find(".yp-selected"), "position", "fixed", "equal") === true) {
+                if(timerx !== null) {
+                    clearTimeout(timerx);        
+                }
 
-                        if (!body.hasClass("yp-has-transform")) { // if not have.
+                if(is_content_selected()){
+
+                    // Set outline border while scrolling if its is fixed.
+                    // Need to reflesh the position on scrolling and this will make feel slow the editor.
+                    if (check_with_parents(get_selected_element(), "position", "fixed", "==") === true) {
+
+                        if (!body.hasClass("yp-has-transform")){ // if not have.
+
                             body.addClass("yp-has-transform"); // add
-                            window.addedOutline = true;
+
+                        }else{
+
+                            // back to normal borders and update position. 
+                            timerx = setTimeout(function(){
+
+                                body.removeClass("yp-has-transform");
+
+                                draw();
+
+                            },250);
+
                         }
 
                     }
+
                 }
 
             });
 
-
-            // update borders while scrolling
+    
+            // update tooltip while scrolling always
             var timer = null;
-            iframe.on("scroll", iframe, function(evt) {
+            iframe.on("scroll", iframe, function(evt){
 
                 if(timer !== null) {
                     clearTimeout(timer);        
                 }
 
-                timer = setTimeout(function() {
-                      yp_draw_tooltip();
-                }, 200);
+                timer = setTimeout(function(){
+                    if(is_content_selected()){
+                        draw_tooltip();
+                    }
+                }, 120);
 
             });
 
@@ -3678,39 +3964,43 @@
             // Custom Blur Callback
             $(document).click(function(event) {
 
+                if(!event.originalEvent){
+                    return false;
+                }
+
                 var evenTarget = $(event.target);
 
                 if (evenTarget.is(".wqcolorpicker")) {
-                    yp_resize();
+                    gui_update();
                 }
 
                 if (evenTarget.is(".iris-picker") === false && evenTarget.is(".iris-square-inner") === false && evenTarget.is(".iris-square-handle") === false && evenTarget.is(".iris-slider-offset") === false && evenTarget.is(".iris-slider-offset .ui-slider-handle") === false && evenTarget.is(".iris-picker-inner") === false && evenTarget.is(".wqcolorpicker") === false) {
                     $(".iris-picker").hide();
-                    yp_resize();
+                    gui_update();
                 }
 
                 if (evenTarget.is('.yp_bg_assets') === false && evenTarget.is('.yp-none-btn') === false && evenTarget.is('.yp-bg-img-btn') === false && $(".yp_background_assets:visible").length > 0) {
                     $(".yp_background_assets").hide();
                     $(".yp-bg-img-btn").removeClass("active");
-                    yp_resize();
+                    gui_update();
                 }
 
                 if (evenTarget.is('.yp-flat-c') === false && evenTarget.is('.yp-flat-colors') === false && $(".yp_flat_colors_area:visible").length > 0) {
                     $(".yp_flat_colors_area").hide();
                     $(".yp-flat-colors").removeClass("active");
-                    yp_resize();
+                    gui_update();
                 }
 
                 if (evenTarget.is('.yp-meterial-c') === false && evenTarget.is('.yp-meterial-colors') === false && $(".yp_meterial_colors_area:visible").length > 0) {
                     $(".yp_meterial_colors_area").hide();
                     $(".yp-meterial-colors").removeClass("active");
-                    yp_resize();
+                    gui_update();
                 }
 
                 if (evenTarget.is('.yp-nice-c') === false && evenTarget.is('.yp-nice-colors') === false && $(".yp_nice_colors_area:visible").length > 0) {
                     $(".yp_nice_colors_area").hide();
                     $(".yp-nice-colors").removeClass("active");
-                    yp_resize();
+                    gui_update();
                 }
 
             });
@@ -3723,50 +4013,48 @@
                 $("#target_background").trigger("click");
             });
 
-            function yp_add_similar_selectors(selector) {
+            function add_similar_selectors(selector) {
 
-                if (selector == '' || selector == '.' || selector == '#' || selector == ' ' || selector == '  ' || selector == yp_get_current_selector() || selector == $("#yp-button-target-input").val()) {
+                if (selector == '' || selector == '.' || selector == '#' || selector == ' ' || selector == '  ' || selector == get_current_selector() || selector == $("#yp-button-target-input").val()) {
                     return false;
                 }
 
                 if ($("#yp-target-dropdown li").length < 10) {
 
-                    if (iframe.find(selector).length == 0) {
+                    if (iframe.find(selector).length === 0) {
                         return false;
                     }
 
-                    if ($("#" + yp_id(selector)).length > 0) {
+                    if ($("#" + get_id(selector)).length > 0) {
                         return false;
                     }
 
                     var selectorOrginal = selector;
+                    var selectorParts;
 
                     if (selector.indexOf("::") != -1) {
-                        var selectorParts = selector.split("::");
+                        selectorParts = selector.split("::");
                         selector = selectorParts[0] + "<b>::" + selectorParts[1] + "</b>";
                     } else if (selector.indexOf(":") != -1) {
-                        var selectorParts = selector.split(":");
+                        selectorParts = selector.split(":");
                         selector = selectorParts[0] + "<b>:" + selectorParts[1] + "</b>";
                     }
 
+                    var role = ' ';
                     if (selector.indexOf(" > ") != -1) {
-                        var role = ' > ';
-                    } else {
-                        var role = ' ';
+                        role = ' > ';
                     }
 
                     selector = "<span style=\"color:#D70669\">" + selector.replace(new RegExp(role, "g"), '</span>' + role + '<span style="color:#D70669">') + "</span>";
                     selector = selector.replace(/<span style=\"(.*?)\">\#(.*?)<\/span>/g, '<span style="color:#6300FF">\#$2<\/span>');
 
-                    var tagName = iframe.find(selectorOrginal)[0].nodeName;
-
-                    $("#yp-target-dropdown").append("<li id='" + yp_id(selectorOrginal) + "'>" + selector + " | " + yp_tag_info(tagName, selectorOrginal) + "</li>");
+                    $("#yp-target-dropdown").append("<li id='" + get_id(selectorOrginal) + "'>" + selector + " | " + get_tag_information(selectorOrginal) + "</li>");
 
                 }
 
             }
 
-            function yp_toggle_hide(status) {
+            function css_editor_toggle(status) {
 
                 if (status === true) {
 
@@ -3785,22 +4073,24 @@
 
                         $("#leftAreaEditor").hide();
                     }
-                    yp_resize();
+                    gui_update();
                 }
 
             }
 
-            function yp_create_similar_selectors() {
+            function create_similar_selectors() {
+
+                var selector;
 
                 $("#yp-target-dropdown li").remove();
 
                 if ($("#yp-button-target-input").val() == '') {
 
-                    var selector = yp_get_current_selector();
+                    selector = get_current_selector();
 
                 } else {
 
-                    var selector = $("#yp-button-target-input").val();
+                    selector = $("#yp-button-target-input").val();
 
                 }
 
@@ -3808,15 +4098,15 @@
                     return false;
                 }
 
-                selector = $.trim(selector);
-
                 var max = 10;
 
                 // adding all ids
                 if (selector == '#') {
-                    iframe.find("[id]").not('head, script, style, [class^="yp-"], [class*=" yellow-pencil-"], link, meta, title, noscript').each(function(i, v) {
+                    iframe.find("[id]").not(window.simple_not_selector).each(function(i, v){
                         if (i < max) {
-                            yp_add_similar_selectors("#" + $(this).attr('id'));
+                            add_similar_selectors("#" + $(this).attr('id'));
+                        }else{
+                            return false;
                         }
                     });
                     return false;
@@ -3824,15 +4114,15 @@
 
                 // adding all classes
                 if (selector == '.') {
-                    iframe.find("[class]").not('head, script, style, [class^="yp-"], [class*=" yellow-pencil-"], link, meta, title, noscript').each(function(i, v) {
+                    iframe.find("[class]").not(window.simple_not_selector).each(function(i, v) {
                         if (i < max) {
-                            yp_add_similar_selectors("." + $(this).attr('class'));
+                            add_similar_selectors("." + $(this).attr('class'));
+                        }else{
+                            return false;
                         }
                     });
                     return false;
                 }
-
-                selector = $.trim(selector.replace(/\.+$/, '').replace(/\#+$/, ''));
 
                 if (selector.indexOf("::") > -1) {
                     selector = selector.split("::")[0];
@@ -3845,79 +4135,112 @@
                 }
 
                 // Using prefix
-                if (yp_selector_to_array(selector).length > 0) {
+                if (get_selector_array(selector).length > 0) {
+
                     var last = null;
-                    var lastPart = yp_selector_to_array(selector)[(yp_selector_to_array(selector).length - 1)];
+                    var elsAll,rex;
+                    var lastPart = get_selector_array(selector)[(get_selector_array(selector).length - 1)];
                     if (lastPart.indexOf(" ") == -1) {
                         last = lastPart;
                     }
 
-                    if (last !== null) {
+                    if (last !== null){
+
+                        var selectorY = $.trim(selector.replace(/\#$/g,"").replace(/\.$/g,""));
+
+                        // adding all ids
+                        if (last == '#') {
+                            iframe.find(selectorY).find("[id]").not(window.simple_not_selector).each(function(i, v) {
+                                if (i < max) {
+                                    add_similar_selectors(selector + $(this).attr('id'));
+                                }else{
+                                    return false;
+                                }
+                            });
+                            return false;
+                        }
+
+                        // adding all classes
+                        if (last == '.') {
+                            iframe.find(selectorY).find("[class]").not(window.simple_not_selector).each(function(i, v) {
+                                if (i < max) {
+                                    add_similar_selectors(selector + $(this).attr('class'));
+                                }else{
+                                    return false;
+                                }
+                            });
+                            return false;
+                        }
 
                         // For Classes
-                        if (last.indexOf(".") != -1) {
+                        if (last.indexOf(".") != -1){
 
-                            var e = iframe.find("[class^='" + last.replace(/\./g, '') + "']").not('head, script, style, [class^="yp-"], [class*=" yellow-pencil-"], link, meta, title, noscript');
+                            elsAll = iframe.find("[class^='" + last.replace(/\./g, '') + "']").not(window.simple_not_selector);
+                            rex = new RegExp("^" + last.replace(/\./g, '') + "(.+)");
 
-                            if (e.length > 0) {
+                            elsAll.each(function(){
 
-                                var classes = e.attr('class').split(' ');
+                                var classes = $(this).attr('class').split(' ');
 
-                                for (var i = 0; i < max; i++) {
-
-                                    var rex = new RegExp("^" + last.replace(/\./g, '') + "(.+)");
+                                for (var i = 0; i < classes.length; i++) {
 
                                     var matches = rex.exec(classes[i]);
 
                                     if (matches !== null) {
                                         var Foundclass = matches[1];
-                                        yp_add_similar_selectors(selector + Foundclass);
+                                        add_similar_selectors(selector + Foundclass);
                                     }
 
                                 }
 
-                            }
+                            });
 
                         }
 
                         // For ID
-                        if (last.indexOf("#") != -1) {
+                        if (last.indexOf("#") != -1){
 
-                            var e = iframe.find("[id^='" + last.replace(/\#/g, '') + "']").not('head, script, style, [class^="yp-"], [class*=" yellow-pencil-"], link, meta, title, noscript');
+                            elsAll = iframe.find("[id^='" + last.replace(/\#/g, '') + "']").not(window.simple_not_selector);
+                            rex = new RegExp("^" + last.replace(/\#/g, '') + "(.+)");
 
-                            if (e.length > 0) {
+                            elsAll.each(function(){
 
-                                var classes = e.attr('id').split(' ');
+                                var ids = $(this).attr('id').split(' ');
 
-                                for (var i = 0; i < max; i++) {
+                                for (var i = 0; i < ids.length; i++) {
 
-                                    var rex = new RegExp("^" + last.replace(/\#/g, '') + "(.+)");
-
-                                    var matches = rex.exec(classes[i]);
+                                    var matches = rex.exec(ids[i]);
 
                                     if (matches !== null) {
                                         var Foundclass = matches[1];
-                                        yp_add_similar_selectors(selector + Foundclass);
+                                        add_similar_selectors(selector + Foundclass);
                                     }
 
                                 }
 
-                            }
+                            });
 
                         }
 
+                    }else{
+                        add_similar_selectors(selector);
                     }
+
                 }
 
                 // Adding childrens.
-                var childrens = iframe.find(selector).find("*").not('head, script, style, [class^="yp-"], [class*=" yellow-pencil-"], link, meta, title, noscript');
+                var childrens = iframe.find(selector).find("*").not(window.simple_not_selector);
 
-                if (childrens.length == 0) {
+                if (childrens.length === 0) {
                     return false;
                 }
 
-                childrens.each(function() {
-                    yp_add_similar_selectors(selector + " " + yp_get_best_class($(this)));
+                childrens.each(function(i) {
+                    if(i < max){
+                        add_similar_selectors(selector + " " + get_best_class($(this)));
+                    }else{
+                        return false;
+                    }
                 });
 
             }
@@ -3938,17 +4261,19 @@
                 }
 
                 if (iframe.find(".context-menu-active").length > 0) {
-                    iframe.find(".yp-selected").contextMenu("hide");
+                    get_selected_element().contextMenu("hide");
                 }
 
                 var element = $(this);
+                var selector;
 
-                if (!element.hasClass("active")) {
+                // if Search tool is closed
+                if (!element.hasClass("active") && body.hasClass("yp-pressed-enter-key") === false) {
 
                     body.addClass("yp-target-active");
                     element.removeClass("active");
 
-                    var selector = yp_get_current_selector();
+                    selector = get_current_selector();
 
                     if (body.attr("data-yp-selector") == ':hover') {
                         selector = selector + ":hover";
@@ -3964,52 +4289,64 @@
 
                     $("#yp-button-target-input").trigger("focus").val(selector).trigger("keyup");
 
-                    yp_create_similar_selectors();
+                    create_similar_selectors();
 
                 } else {
 
-                    var selector = $("#yp-button-target-input").val();
+                    selector = $("#yp-button-target-input").val();
 
                     if (selector == '' || selector == ' ') {
                         element.addClass("active");
                         body.removeClass("yp-target-active");
                     }
 
-                    if (selector.match(/:hover/g)) {
-                        var selectorNew = selector.replace(/:hover/g, '');
-                    } else if (selector.match(/:focus/g)) {
-                        var selectorNew = selector.replace(/:focus/g, '');
-                    } else {
-                        var selectorNew = selector;
+                    // Be sure hover and focus to last because just support hover&focus in last.
+                    var hoverPosition = selector.match(/:hover(.*?)$/g);
+                    var focusPosition = selector.match(/:focus(.*?)$/g);
+
+                    if(hoverPosition !== null){
+                        hoverPosition = hoverPosition.toString().trim().replace(/:hover/g,'').trim().length;
+                    }else{
+                        hoverPosition = 0;
                     }
 
-                    if (iframe.find(selectorNew).length > 0 && selectorNew != '*') {
+                    if(focusPosition !== null){
+                        focusPosition = focusPosition.toString().trim().replace(/:focus/g,'').trim().length;
+                    }else{
+                        focusPosition = 0;
+                    }
+
+                    var selectorNew = selector.replace(/:hover/g, '').replace(/:focus/g, '');
+
+
+                    if (iframe.find(selectorNew).length > 0 && selectorNew != '*' && hoverPosition === 0 && focusPosition === 0) {
 
                         if (iframe.find(selector).hasClass("yp-selected")) {
-                            iframe.find(".yp-selected").addClass("yp-will-selected");
+                            get_selected_element().addClass("yp-will-selected");
                         }
 
-                        yp_set_selector(selector,null);
+                        set_selector(space_cleaner(selector),null);
 
                         // selected element
                         var selectedElement = iframe.find(selectorNew);
 
                         // scroll to element if not visible on screen.
-                        if (iframe.find(".yp-selected-tooltip").hasClass("yp-fixed-tooltip")) {
-                            var height = parseInt($(window).height() / 2);
-                            var selectedHeight = parseInt(selectedElement.height() / 2);
-                            if (selectedHeight < height) {
-                                var scrollPosition = selectedHeight + selectedElement.offset().top - height;
-                                iframe.scrollTop(scrollPosition);
-                            }
+                        var height = parseInt($(window).height() / 2);
+                        var selectedHeight = parseInt(selectedElement.height() / 2);
+                        if (selectedHeight < height) {
+                            var scrollPosition = selectedHeight + selectedElement.offset().top - height;
+                            iframe.scrollTop(scrollPosition);
                         }
 
                         element.addClass("active");
                         body.removeClass("yp-target-active");
 
-                    } else if (selectorNew != '' && selectorNew != ' ') {
+                    } else if (selectorNew != '' && selectorNew != ' '){
 
                         $("#yp-button-target-input").css("color", "red");
+
+                        element.removeClass("active");
+                        body.addClass("yp-target-active");
 
                     }
 
@@ -4029,22 +4366,30 @@
             // Custom Selector Keyup
             $("#yp-button-target-input").keyup(function(e) {
 
-                yp_create_similar_selectors();
+                if($(this).val().length > 1 || $(this).val() == '#' || $(this).val() == "."){
+                    create_similar_selectors();
+                }
 
-                $(this).attr("style", "");
+                if (e.keyCode != 13){
+                    $(this).attr("style", "");
+                }
 
                 // Enter
                 if (e.keyCode == 13) {
+                    body.addClass("yp-pressed-enter-key");
                     $(".yp-button-target").trigger("click");
+                    body.removeClass("yp-pressed-enter-key");
                     return false;
                 }
 
             });
 
             // Selector Color Red Remove.
-            $("#yp-button-target-input").keydown(function() {
+            $("#yp-button-target-input").keydown(function(e) {
 
-                $(this).attr("style", "");
+                if (e.keyCode != 13){
+                    $(this).attr("style", "");
+                }
 
             });
 
@@ -4054,33 +4399,19 @@
             }
 
             // iris plugin.
-            $('.yp-select-bar > ul > li > div > div > div > div > .wqcolorpicker').iris({
-
+            $('.yp-select-bar > ul > li > div > div > div > div > .wqcolorpicker').cs_iris({
                 hide: true,
-
-                width: wIris,
-
-                change: function(event, ui) {
-                    $(this).parent().find(".wqminicolors-swatch-color").css("background-color", ui.color.toString());
-                }
-
+                width: wIris
             });
 
             // iris plugin.
-            $('.yp-select-bar .yp-advanced-option .wqcolorpicker').iris({
-
+            $('.yp-select-bar .yp-advanced-option .wqcolorpicker').cs_iris({
                 hide: true,
-
-                width: wIris,
-
-                change: function(event, ui) {
-                    $(this).parent().find(".wqminicolors-swatch-color").css("background-color", ui.color.toString());
-                }
-
+                width: wIris
             });
 
             // Update responsive note
-            function yp_update_sizes() {
+            function update_responsive_size_notice() {
 
                 if ($("body").hasClass("yp-responsive-device-mode") === false) {
                     return false;
@@ -4160,9 +4491,9 @@
             }
 
             // Smart insert default values for options.
-            function yp_insert_default_options() {
+            function insert_default_options() {
 
-                if ($("body").hasClass("yp-content-selected") === false) {
+                if (is_content_selected() === false) {
                     return false;
                 }
 
@@ -4180,14 +4511,12 @@
 
                             var check = 1;
 
-                            if ($(this).attr("id") == 'animation-duration-group') {
-                                if ($("body").hasClass("yp-anim-creator") === true) {
-                                    check = 0;
-                                }
+                            if ($(this).attr("id") == 'animation-duration-group' && is_animate_creator() === true) {
+                                check = 0;
                             }
 
                             if (check == 1) {
-                                yp_set_default(".yp-selected", yp_id_hammer(this), false);
+                                set_default_value(get_option_id(this));
                             }
 
                         }
@@ -4266,7 +4595,7 @@
                             }).length == 1) {
 
                             $(".active-autocomplete-item").removeClass("active-autocomplete-item");
-                            if ($(".active-autocomplete-item").length == 0) {
+                            if ($(".active-autocomplete-item").length === 0) {
 
                                 $(this).parent().find(".autocomplete-div").find('li').filter(function() {
                                     return $.text([this]) === current;
@@ -4295,7 +4624,7 @@
                             $(".autocomplete-div li").each(function() {
                                 
                                 // Light 300 > 300
-                                var v = Math.abs(yp_num($(this).text()));
+                                var v = Math.abs(number_filter($(this).text()));
                                 $(this).css("font-weight", v);
 
                             });
@@ -4303,7 +4632,7 @@
                         }
 
                         if(id == 'font-weight' || id == 'font-family'){
-                            yp_load_near_fonts($(this).parent().find(".autocomplete-div"));
+                            load_near_fonts($(this).parent().find(".autocomplete-div"));
                         }
 
                         // Text shadow
@@ -4349,9 +4678,11 @@
             });
 
             $(".yp-responsive-btn").click(function() {
+
                 if ($("body").hasClass("yp-css-editor-active")) {
                     $(".yp-css-close-btn").trigger("click");
                 }
+
             });
 
             // Responsive Helper: tablet
@@ -4361,19 +4692,19 @@
                     body.removeClass("yp-responsive-device-mode");
                     $(this).addClass("active");
                     $("#iframe").removeAttr("style");
-                    yp_insert_default_options();
-                    yp_update_sizes();
-                    yp_draw();
+                    insert_default_options();
+                    update_responsive_size_notice();
+                    draw();
                 } else {
                     body.addClass("yp-responsive-device-mode");
                     $(this).removeClass("active");
-                    yp_insert_default_options();
-                    yp_update_sizes();
-                    yp_draw();
+                    insert_default_options();
+                    update_responsive_size_notice();
+                    draw();
                 }
 
                 if(body.hasClass("yp-animate-manager-active")){
-                    yp_anim_manager();
+                    animation_manager();
                 }
 
             });
@@ -4381,7 +4712,7 @@
             // Reset Button
             $(".yp-button-reset").click(function() {
 
-                if ($("body").hasClass("yp-anim-creator")) {
+                if (is_animate_creator()) {
                     if (!confirm(l18_closeAnim)) {
                         return false;
                     } else {
@@ -4426,8 +4757,6 @@
                     // delete undo history.
                     editor.getSession().setUndoManager(new ace.UndoManager());
 
-                    body.removeClass("undo-clicked");
-
                     // Clean CSS Data
                     iframe.find("#yp-css-data-full").html("");
 
@@ -4435,16 +4764,26 @@
                     iframe.find(".yp-parallax-disabled").removeClass("yp-parallax-disabled");
 
                     // Update Changes.
-                    if (body.hasClass("yp-content-selected")) {
+                    if (is_content_selected()) {
 
-                        yp_insert_default_options();
+                        insert_default_options();
 
-                        yp_draw();
+                        draw();
 
                     }
 
                     // Option Changed
-                    yp_option_change();
+                    option_change();
+
+                    // Update draggable after reset
+                    var el = iframeBody.find(".yp-selected");
+                    if(el.length > 0){
+
+                        if(el.css("position") == 'static'){
+                            el.css("position","relative");
+                        }
+
+                    }
 
                 });
 
@@ -4453,54 +4792,56 @@
             // Install All Options Types.
             // Installing and setting default value to all.
             $(".yp-slider-option").each(function() {
-                yp_slider_option(yp_id_hammer(this), $(this).data("decimals"), $(this).data("pxv"), $(this).data("pcv"), $(this).data("emv"));
+                slider_option(get_option_id(this), $(this).data("decimals"), $(this).data("pxv"), $(this).data("pcv"), $(this).data("emv"));
             });
 
             $(".yp-radio-option").each(function() {
-                yp_radio_option(yp_id_hammer(this));
+                radio_option(get_option_id(this));
             });
 
             $(".yp-color-option").each(function() {
-                yp_color_option(yp_id_hammer(this));
+                color_option(get_option_id(this));
             });
 
             $(".yp-input-option").each(function() {
-                yp_input_option(yp_id_hammer(this));
+                input_option(get_option_id(this));
             });
 
             // Updating slider by input value.
-            function yp_update_slide_by_input(element,value,prefix) {
+            function update_slide_by_input(element,value,prefix) {
 
                 var elementParent = element.parent().parent().parent();
+                var range;
 
                 if(value === false){
-                    var value = element.parent().find(".yp-after-css-val").val();
-                    var prefix = element.parent().find(".yp-after-prefix").val();
+                    value = element.parent().find(".yp-after-css-val").val();
+                    prefix = element.parent().find(".yp-after-prefix").val();
                 }
+
                 var slide = element.parent().parent().find(".wqNoUi-target");
 
                 // Update PX
                 if (prefix == 'px') {
-                    var range = elementParent.data("px-range").split(",");
+                    range = elementParent.data("px-range").split(",");
                 }
 
                 // Update %.
                 if (prefix == '%') {
-                    var range = elementParent.data("pc-range").split(",");
+                    range = elementParent.data("pc-range").split(",");
                 }
 
                 // Update EM.
                 if (prefix == 'em') {
-                    var range = elementParent.data("em-range").split(",");
+                    range = elementParent.data("em-range").split(",");
                 }
 
                 // Update S.
                 if (prefix == 's' || prefix == '.s') {
-                    var range = elementParent.data("em-range").split(",");
+                    range = elementParent.data("em-range").split(",");
                 }
 
                 // min and max values
-                if (typeof range == typeof undefined || range === false) {
+                if (range === undefined || range === false) {
                     return false;
                 }
 
@@ -4533,7 +4874,7 @@
             // process CSS before open CSS editor.
             $("body:not(.yp-css-editor-active) .css-editor-btn").hover(function() {
                 if (!$("body").hasClass("yp-css-editor-active")) {
-                    yp_process(false, false, false);
+                    process(false, false, false);
                 }
             });
 
@@ -4552,19 +4893,21 @@
                 if ($("#leftAreaEditor").css("display") == 'none') {
 
                     // No selected
-                    if (!body.hasClass("yp-content-selected")) {
-                        editor.setValue(yp_get_clean_css(true));
+                    if (!is_content_selected()) {
+                        editor.setValue(get_clean_css(true));
                         editor.focus();
                         editor.execCommand("gotolineend");
                     } else {
-                        yp_insert_rule(yp_get_current_selector(), 'a', 'a', '');
-                        var cssData = yp_get_clean_css(false);
+                        insert_rule(null, 'a', 'a', '');
+                        var cssData = get_clean_css(false);
                         var goToLine = cssData.split("a:a")[0].split(/\r\n|\r|\n/).length;
                         cssData = cssData.replace(/a:a !important;/g, "");
                         cssData = cssData.replace(/a:a;/g, "");
                         editor.setValue(cssData);
                         editor.resize(true);
-                        editor.scrollToLine(goToLine, true, true);
+                        setTimeout(function(){
+                            editor.scrollToLine(goToLine, true, false);
+                        },2);
                         editor.focus();
                         if ($("body").hasClass("yp-responsive-device-mode")) {
                             editor.gotoLine(goToLine, 2, true);
@@ -4586,17 +4929,21 @@
                 } else {
 
                     // CSS To data
-                    yp_process(true, false, false);
+                    process(true, false, false);
 
                 }
 
                 // Update All.
-                yp_draw();
+                draw();
 
             });
 
             // Blur: Custom Slider Value
-            $(".yp-after-css-val,.yp-after-prefix").on("keydown keyup",function() {
+            $(".yp-after-css-val,.yp-after-prefix").on("keydown keyup",function(e) {
+
+                if(!e.originalEvent){
+                    return false;
+                }
 
                 var id = $(this).parents(".yp-option-group").attr("data-css");
                 var thisContent = $("#" + id + "-group").parent(".yp-this-content");
@@ -4615,7 +4962,7 @@
                 var prefix = $(this).parent().find(".yp-after-prefix").val();
 
                 // Self
-                yp_update_slide_by_input($(this),false);
+                update_slide_by_input($(this),false);
 
                 // others
                 if(lock){
@@ -4623,10 +4970,11 @@
                     for(var y = 0;y < lockedIdArray.length; y++){
                         $("#" + lockedIdArray[y]+"-value").val(value);
                         $("#" + lockedIdArray[y]+"-after").val(prefix);
-                        yp_update_slide_by_input($("#" + lockedIdArray[y]+"-value"),value,prefix);
-                        yp_slide_action($("#yp-" + lockedIdArray[y]), lockedIdArray[y], true);
-
+                        update_slide_by_input($("#" + lockedIdArray[y]+"-value"),value,prefix);
+                        slide_action($("#yp-" + lockedIdArray[y]), lockedIdArray[y], true, false);
                     }
+
+                    option_change();
 
                 }
 
@@ -4634,12 +4982,23 @@
 
 
             // Call function.
-            yp_resize();
+            gui_update();
+
 
             // select only single element
-            function yp_single_selector(selector) {
+            function single_selector(selector) {
 
-                var selectorArray = yp_selector_to_array(selector);
+                var customClass = 'yp-selected';
+                if(body.hasClass("yp-control-key-down") && is_content_selected()){
+                    customClass = 'yp-multiple-selected';
+                }
+
+                // Clean
+                selector = left_trim(selector, "htmlbody ");
+                selector = left_trim(selector, "html ");
+                selector = left_trim(selector, "body ");
+
+                var selectorArray = get_selector_array(selector);
                 var i = 0;
                 var indexOf = 0;
                 var selectorPlus = '';
@@ -4666,7 +5025,7 @@
 
                                         indexOf++;
 
-                                        if ($(this).find(".yp-selected").length > 0 || $(this).hasClass("yp-selected") === true) {
+                                        if ($(this).find("."+customClass).length > 0 || $(this).hasClass((customClass))) {
 
                                             selectorPlus = selectorPlus + ":nth-child(" + indexOf + ")";
 
@@ -4684,26 +5043,94 @@
 
                 }
 
-                if (iframe.find($.trim(selectorPlus)).length > 1 && $.trim(selectorPlus).indexOf(" > ") == -1) {
 
-                    var selectorAll = '';
-                    var selectorPlusD = yp_selector_to_array(selectorPlus);
-                    var i = 0;
-                    for (i = 0; i < selectorPlusD.length; i++) {
-                        if (selectorPlusD[i].indexOf(":nth-child") != -1) {
-                            selectorAll = selectorAll + " > " + selectorPlusD[i];
-                        } else {
-                            selectorAll = selectorAll + " " + selectorPlusD[i];
+                // Clean no-need nth-childs.
+                if(selectorPlus.indexOf(":nth-child") != -1){
+
+                    // Selector Array
+                    selectorArray = get_selector_array(selectorPlus);
+
+                    // Each all selector parts
+                    for(i = 0; i < selectorArray.length; i++){
+
+                        // Get previous parts of selector
+                        var prevAll = get_previous_item(selectorArray,i).join(" ");
+
+                        // Gext next parts of selector
+                        var nextAll = get_next_item(selectorArray,i).join(" ");
+
+                        // check the new selector
+                        var selectorPlusNew = prevAll + window.separator + selectorArray[i].replace(/:nth-child\((.*?)\)/i,'') + window.separator + nextAll;
+
+                        // clean
+                        selectorPlusNew = space_cleaner(selectorPlusNew);
+
+                        // Add " > " to last part of selector for be sure everything works fine.
+                        if(iframe.find(selectorPlusNew).length > 1){
+                            selectorPlusNew = selectorPlusNew.replace(/(?=[^ ]*$)/i,' > ');
                         }
+
+                        // Check the selector without nth-child and be sure have only 1 element.
+                        if(iframe.find(selectorPlusNew).length == 1){
+                            selectorArray[i] = selectorArray[i].replace(/:nth-child\((.*?)\)/i,'');
+                        }
+
                     }
 
-                    selectorPlus = selectorAll;
+                    // Array to spin, and clean selector.
+                    selectorPlus = space_cleaner(selectorArray.join(" "));
 
                 }
 
-                return $.trim(selectorPlus);
+
+                // Add > symbol to last if selector finding more element than one.
+                if(iframe.find(selectorPlus).length > 1){
+                    selectorPlus = selectorPlus.replace(/(?=[^ ]*$)/i,' > ');
+                }
+
+
+                // Ready.
+                return space_cleaner(selectorPlus);
 
             }
+
+
+            function get_previous_item(arr,current){
+
+                var result = [];
+
+                for(var i = 0; i < arr.length; i++){
+
+                    if(i < current){
+
+                        result.push(arr[i]);
+
+                    }
+
+                }
+
+                return result;
+
+            }
+
+            function get_next_item(arr,current){
+
+                var result = [];
+
+                for(var i = 0; i < arr.length; i++){
+
+                    if(i > current){
+
+                        result.push(arr[i]);
+
+                    }
+
+                }
+
+                return result;
+
+            }
+
 
             /* ---------------------------------------------------- */
             /* Set context menu options.                            */
@@ -4717,7 +5144,7 @@
 
                         body.removeClass("yp-contextmenuopen");
 
-                        yp_draw();
+                        draw();
 
                     },
 
@@ -4725,11 +5152,11 @@
                     show: function() {
 
                         // Disable contextmenu on animate creator.
-                        if ($("body").hasClass("yp-anim-creator")) {
-                            iframe.find(".yp-selected").contextMenu("hide");
+                        if (is_animate_creator()) {
+                            get_selected_element().contextMenu("hide");
                         }
 
-                        var selector = yp_get_current_selector();
+                        var selector = get_current_selector();
 
                         var elementP = iframe.find(selector).parent();
 
@@ -4751,7 +5178,7 @@
 
                     body.removeClass("yp-contextmenuopen");
 
-                    var selector = yp_get_current_selector();
+                    var selector = get_current_selector();
 
                     // Context Menu: Parent
                     if (key == "parent") {
@@ -4762,25 +5189,25 @@
                         }
 
                         // add class to parent.
-                        iframe.find(".yp-selected").parent().addClass("yp-will-selected");
+                        get_selected_element().parent().addClass("yp-will-selected");
 
                         // clean
-                        yp_clean();
+                        clean();
 
                         // Get parent selector.
-                        var parentSelector = $.trim(yp_get_parents(iframe.find(".yp-will-selected"), "default"));
+                        var parentSelector = $.trim(get_parents(iframe.find(".yp-will-selected"), "default"));
 
                         // Set Selector
-                        yp_set_selector(parentSelector,null);
+                        set_selector(parentSelector,null);
 
                     }
 
                     // Context Menu: Hover
                     if (key == "hover" || key == "focus") {
 
-                        var selector = yp_get_current_selector();
+                        selector = selector.replace(/:(?!hover|focus)/g,"YP_DOTTED_PREFIX");
 
-                        if (!$(".yp-contextmenu-" + key).hasClass("yp-active-contextmenu")) {
+                        if (!$(".yp-contextmenu-" + key).hasClass("yp-active-contextmenu")){
                             if (selector.indexOf(":") == -1) {
                                 selector = selector + ":" + key;
                             } else {
@@ -4790,7 +5217,9 @@
                             selector = selector.split(":")[0];
                         }
 
-                        yp_set_selector(selector,null);
+                        selector = selector.replace(/YP_DOTTED_PREFIX/g,":");
+
+                        set_selector(selector,null);
 
                     }
 
@@ -4809,23 +5238,31 @@
 
                         $("body").addClass("yp-select-just-it");
 
-                        selector = yp_get_parents(iframe.find(".yp-selected"), "sharp");
+                        selector = get_parents(null, "sharp");
 
-                        var selectorPlus = yp_single_selector(selector);
+                        var selectorPlus = single_selector(selector);
 
-                        if (iframe.find(selectorPlus).length != 0) {
-                            yp_set_selector(selectorPlus,null);
+                        if (iframe.find(selectorPlus).length !== 0) {
+                            set_selector(selectorPlus,null);
                         }
 
-                        body.removeClass("yp-select-just-it");
+                        $("body").removeClass("yp-select-just-it");
 
                     }
                     /* Select just it functions end here */
 
+                    if(key == 'resetit'){
+                        reset_selected_element(false);
+                    }
+
+                    if(key == 'reset-with-childs'){
+                        reset_selected_element(true);
+                    }
+
                     // leave Selected element.
                     if (key == 'close') {
-                        yp_clean();
-                        yp_resize();
+                        clean();
+                        gui_update();
                     }
 
                     // toggle selector editor.
@@ -4862,6 +5299,19 @@
                         name: "Select just it",
                         className: "yp-contextmenu-select-it"
                     },
+                    "reset": {
+                        name: "Reset",
+                        items:{
+                            "resetit": {
+                                name: "The Element",
+                                className: "yp-contextmenu-reset-it"
+                            },
+                            "reset-with-childs": {
+                                name: "Childs Elements",
+                                className: "yp-contextmenu-reset-childs"
+                            },
+                        },
+                    },
                     "close": {
                         name: "Leave",
                         className: "yp-contextmenu-close"
@@ -4876,21 +5326,24 @@
             /* Resize.                                              */
             /* Dynamic resize yellow pencil panel                   */
             /* ---------------------------------------------------- */
-            function yp_resize() {
+            function gui_update() {
+
+                // Variables
+                var topBarHeight,height,heightLitte,footerHeight,topPadding,topHeightBar;
 
                 // update.
-                window.scroll_width = yp_get_scroll_bar_width();
+                window.scroll_width = get_scroll_bar_width();
 
                 // top margin for matgin.
                 var topMargin = 0;
-                if ($("body").hasClass("yp-metric-disable") === false || $("body").hasClass("yp-responsive-device-mode") === true) {
+                if ($("body").hasClass(("yp-metric-disable") === false || $("body").hasClass("yp-responsive-device-mode"))) {
                     topMargin = 31;
                 }
 
                 // Right menu fix.
                 if (iframe.height() > $(window).height() && $("body").hasClass("yp-responsive-device-mode") === false) {
                     $(".yp-select-bar").css("margin-right", 8 + window.scroll_width + "px");
-                } else if (topMargin == 0) {
+                } else if (topMargin === 0) {
                     $(".yp-select-bar").css("margin-right", "8px");
                 } else if (topMargin > 0 && iframe.height() + topMargin > $(window).height()) {
                     $(".yp-select-bar").css("margin-right", 8 + window.scroll_width + "px");
@@ -4901,15 +5354,15 @@
 
                 // Difference size for 790 and more height.
                 if ($(window).height() > 790) {
-                    var topBarHeight = 46;
+                    topBarHeight = 46;
                 } else {
-                    var topBarHeight = 43;
+                    topBarHeight = 43;
                 }
 
                 // Resize. If no selected menu showing.
                 if ($(".yp-no-selected").css("display") == "block") {
 
-                    var height = $(".yp-no-selected").height() + 140;
+                    height = $(".yp-no-selected").height() + 140;
 
                     if (height <= maximumHeight) {
                         $(".yp-select-bar").height(height);
@@ -4922,7 +5375,7 @@
                     // If any options showing.
                 } else if ($(".yp-this-content:visible").length > 0) {
 
-                    var height = $(".yp-this-content:visible").parent().height();
+                    height = $(".yp-this-content:visible").parent().height();
 
                     if (height <= maximumHeight) {
                         if (window.chrome) {
@@ -4930,7 +5383,7 @@
                         } else {
                             height = height + 116;
                         }
-                        var heightLitte = height - 45;
+                        heightLitte = height - 45;
                     }
 
                     if ($(window).height() < 700) {
@@ -4948,20 +5401,20 @@
                 } else { // If Features list showing.
 
                     if ($(window).height() > 790) {
-                        var footerHeight = 104;
+                        footerHeight = 103;
                     } else if ($(window).height() > 700) {
-                        var footerHeight = 114;
+                        footerHeight = 113;
                     } else {
-                        var footerHeight = 33;
+                        footerHeight = 33;
                     }
 
                     if($("body").hasClass("yp-wireframe-mode")){
-                        var topPadding = (($(".yp-editor-list > li").length - 6) * topBarHeight) + footerHeight+2;
+                        topPadding = (($(".yp-editor-list > li").length - 6) * topBarHeight) + footerHeight+3;
                     }else{
-                        var topPadding = (($(".yp-editor-list > li").length - 2) * topBarHeight) + footerHeight;
+                        topPadding = (($(".yp-editor-list > li").length - 2) * topBarHeight) + footerHeight;
                     }
 
-                    var topHeightBar = $(".yp-editor-top").height() + topPadding;
+                    topHeightBar = $(".yp-editor-top").height() + topPadding;
 
                     if (topHeightBar <= maximumHeight) {
                         $(".yp-select-bar").height(topHeightBar);
@@ -5002,9 +5455,9 @@
 
                     if ($(this).find("#iframe").length > 0) {
 
-                        if (body.hasClass("yp-responsive-device-mode") === true) {
+                        if (body.hasClass(("yp-responsive-device-mode"))) {
 
-                            if ($("body").hasClass("yp-responsive-resizing") === true) {
+                            if ($("body").hasClass(("yp-responsive-resizing"))) {
 
                                 // Min 320 W
                                 if (cx < 320 + 48) {
@@ -5045,9 +5498,9 @@
 
                     }
 
-                    if ($(this).find("#iframe").length == 0) {
+                    if ($(this).find("#iframe").length === 0) {
 
-                        if ($("body").hasClass("yp-responsive-resizing") === true) {
+                        if ($("body").hasClass(("yp-responsive-resizing"))) {
 
                             // Min 320 W
                             if (cx < 320) {
@@ -5076,7 +5529,7 @@
                         $(".metric-top-tooltip").attr("style", "top:" + cy + "px !important;display:block;margin-top:32px;");
                         $(".metric-left-tooltip").attr("style", "left:" + cx + "px !important;display:block;");
 
-                        if ($("body").hasClass("yp-responsive-resizing") === true) {
+                        if ($("body").hasClass(("yp-responsive-resizing"))) {
                             $(".metric-top-tooltip span").text(y + 10);
                             $(".metric-left-tooltip span").text(x + 10);
                         } else {
@@ -5097,13 +5550,13 @@
                     var element = $(e.target);
 
                     if (element.hasClass("yp-selected-tooltip") || element.hasClass("yp-selected-boxed-top") || element.hasClass("yp-selected-boxed-left") || element.hasClass("yp-selected-boxed-right") || element.hasClass("yp-selected-boxed-bottom") || element.hasClass("yp-edit-menu") || element.parent().hasClass("yp-selected-tooltip")) {
-                        element = iframe.find(".yp-selected");
+                        element = get_selected_element();
                     }
 
                     // CREATE SIMPLE BOX
                     var element_offset = element.offset();
 
-                    if (element_offset != undefined) {
+                    if (isDefined(element_offset)) {
 
                         var topBoxesI = element_offset.top;
                         var leftBoxesI = element_offset.left;
@@ -5116,7 +5569,7 @@
                         var heightBoxesI = element.outerHeight();
 
                         // Dynamic Box
-                        if (iframe.find(".hover-info-box").length == 0) {
+                        if (iframe.find(".hover-info-box").length === 0) {
                             iframeBody.append("<div class='hover-info-box'></div>");
                         }
 
@@ -5125,11 +5578,9 @@
                     }
 
                     // Create box end.
-                    if (body.hasClass("yp-element-resizing")) {
-                        element = iframe.find(".yp-selected");
+                    if (is_resizing()) {
+                        element = get_selected_element();
                     }
-
-                    var element_offset = element.offset();
 
                     if (isUndefined(element_offset)) {
                         return false;
@@ -5147,7 +5598,7 @@
 
                     var bottomBoxes = topBoxes + heightBoxes;
 
-                    if (iframe.find(".yp-size-handle").length == 0) {
+                    if (iframe.find(".yp-size-handle").length === 0) {
                         iframeBody.append("<div class='yp-size-handle'>W : <span class='ypdw'></span> px<br>H : <span class='ypdh'></span> px</div>");
                     }
 
@@ -5171,6 +5622,12 @@
 
             });
 
+    
+            $(window).resize(function(){
+                setTimeout(function(){
+                    gui_update();
+                },5);
+            });
 
 
             /* ---------------------------------------------------- */
@@ -5178,26 +5635,30 @@
             /* ---------------------------------------------------- */
             iframe.on("mouseover mouseout", iframe, function(evt){
 
-                if ($(".yp-selector-mode.active").length > 0 && $("body").hasClass("yp-metric-disable") === true){
+               if ($(".yp-selector-mode.active").length > 0 && $("body").hasClass(("yp-metric-disable"))){
 
                     // Element
                     var element = $(evt.target);
 
-                    var elementClasses = element.attr("class");
+                    // Adding always class to last hovered element for some reasions.
+                    iframe.find(".yp-recent-hover-element").removeClass("yp-recent-hover-element");
 
-                    if (element.hasClass("yp-selected")) {
-                        return false;
+                    if (is_content_selected() === true && body.hasClass("yp-control-key-down") === false) {
+                        element.addClass("yp-recent-hover-element");
                     }
 
-                    if (body.hasClass("yp-content-selected") === false) {
-                        if (element.hasClass("yp-selected-tooltip") === true) {
-                            yp_clean();
+                    var elementClasses = element.attr("class");
+
+                    // Multi selecting support
+                    if (is_content_selected() === false) {
+                        if (element.hasClass(("yp-selected-tooltip"))) {
+                            clean();
                             return false;
                         }
 
                         if (element.parent().length > 0) {
                             if (element.parent().hasClass("yp-selected-tooltip")) {
-                                yp_clean();
+                                clean();
                                 return false;
                             }
                         }
@@ -5211,7 +5672,7 @@
                     }
 
                     // If colorpicker stop.
-                    if ($("body").hasClass("yp-element-picker-active") === true) {
+                    if ($("body").hasClass(("yp-element-picker-active"))) {
 
                         window.pickerColor = element.css("background-color");
 
@@ -5230,7 +5691,7 @@
 
                         var color = window.pickerColor.toString();
 
-                        $(".yp-element-picker.active").parent().parent().find(".wqcolorpicker").val(yp_color_converter(color)).trigger("change");
+                        $(".yp-element-picker.active").parent().parent().find(".wqcolorpicker").val(get_color(color)).trigger("change");
 
                         if (window.pickerColor == '' || window.pickerColor == 'transparent') {
                             var id_prt = $(".yp-element-picker.active").parent().parent();
@@ -5244,7 +5705,7 @@
                     var nodeName = element[0].nodeName;
 
                     // If element already selected, stop.
-                    if (body.hasClass("yp-content-selected")) {
+                    if (is_content_selected() === true && body.hasClass("yp-control-key-down") === false) {
                         return false;
                     }
 
@@ -5263,7 +5724,7 @@
                     }
 
                     // stop if not have
-                    if (element.length == 0) {
+                    if (element.length === 0) {
                         return false;
                     }
 
@@ -5275,10 +5736,14 @@
                     // Cache
                     window.styleData = element.attr("style");
 
-                    if (body.hasClass("yp-content-selected") === false) {
+                    if(isUndefined(window.styleData)){
+                        window.styleData = '';
+                    }
+
+                    if (is_content_selected() === false){
 
                         // Remove all ex data.
-                        yp_clean();
+                        clean();
 
                         // Hover it
                         element.addClass("yp-selected");
@@ -5286,43 +5751,60 @@
                     }
 
                     // Geting selector.
+                    var selector;
                     if (window.setSelector === false) {
-                        var selector = yp_get_parents(element, "default");
+                        selector = get_parents(element, "default");
                     } else {
-                        var selector = window.setSelector;
+                        selector = window.setSelector;
                     }
 
                     evt.stopPropagation();
                     evt.preventDefault();
 
-                    if (body.hasClass("yp-content-selected") === false) {
+                    if (is_content_selected() === false) {
 
                             // transform.
-                            if (yp_check_with_parents(element, "transform", "none", "notequal") === true) {
+                            if (check_with_parents(element, "transform", "none", "!=") === true) {
                                 body.addClass("yp-has-transform");
                             }
 
-                            // For tooltip
-                            var tagName = nodeName;
-
-                            yp_draw_box(evt.target, 'yp-selected-boxed');
+                            draw_box(evt.target, 'yp-selected-boxed');
 
                             var selectorView = selector;
 
                             var selectorTag = selector.replace(/>/g, '').replace(/  /g, ' ').replace(/\:nth-child\((.*?)\)/g, '');
 
                             // Element Tooltip  |  Append setting icon.
-                            iframeBody.append("<div class='yp-selected-tooltip'><small class='yp-tooltip-small'>" + yp_tag_info(tagName, selectorTag) + "</small> " + $.trim(selectorView) + "</div><div class='yp-edit-menu'></div>");
+                            iframeBody.append("<div class='yp-selected-tooltip'><small class='yp-tooltip-small'>" + get_tag_information(selectorTag) + "</small> " + $.trim(selectorView) + "</div><div class='yp-edit-menu'></div>");
 
-                            // Select Others.
-                            iframe.find(selector + ":not(.yp-selected)").each(function(i) {
+                            // Select Others.. (using .not because will be problem when selector has "," multip selectors)
+                            iframe.find(selector).not(".yp-selected").not(".yp-multiple-selected").each(function(i) {
 
                                 $(this).addClass("yp-selected-others");
-                                yp_draw_box_other(this, 'yp-selected-others', i);
+                                draw_other_box(this, 'yp-selected-others', i);
 
                             });
 
-                            yp_draw_tooltip();
+                            draw_tooltip();
+
+                    }else{
+
+                        if(is_content_selected() && body.hasClass("yp-control-key-down")){
+
+                            if(element.parents(".yp-selected").length === 0){
+
+                                // Clean before
+                                iframe.find(".yp-multiple-selected").removeClass("yp-multiple-selected");
+
+                                // Add new
+                                element.addClass("yp-multiple-selected");
+
+                                // Draw
+                                draw_other_box(element, 'yp-selected-others', "multiable");
+
+                            }
+
+                        }
 
                     }
 
@@ -5330,57 +5812,39 @@
 
             });
 
+
             /* ---------------------------------------------------- */
             /* Doing update the draw.                               */
             /* ---------------------------------------------------- */
-            function yp_draw() {
+            function draw() {
 
                 // If not visible stop.
-                if (iframe.find(".yp-selected").css("display") == 'none') {
+                var element = get_selected_element();
+                if (check_with_parents(element, "display", "none", "==") === true || check_with_parents(element, "opacity", "0", "==") === true || check_with_parents(element, "visibility", "hidden", "==") === true) {
                     return false;
                 }
 
                 // selected boxed.
-                yp_draw_box(".yp-selected", 'yp-selected-boxed');
+                draw_box(".yp-selected", 'yp-selected-boxed');
 
                 // Select Others.
-                iframe.find(".yp-selected-others").each(function(i) {
-                    yp_draw_box_other(this, 'yp-selected-others', i);
+                iframe.find(".yp-selected-others:not(.yp-multiple-selected)").each(function(i) {
+                    draw_other_box(this, 'yp-selected-others', i);
                 });
 
+                // Tooltip
+                draw_tooltip();
+
                 // Dragger update.
-                yp_get_handler();
-
-                setTimeout(function() {
-
-                    // If not visible stop.
-                    if (iframe.find(".yp-selected").css("display") == 'none') {
-                        return false;
-                    }
-
-                    // selected boxed.
-                    yp_draw_box(".yp-selected", 'yp-selected-boxed');
-
-                    // Select Others.
-                    iframe.find(".yp-selected-others").each(function(i) {
-                        yp_draw_box_other(this, 'yp-selected-others', i);
-                    });
-
-                    // Tooltip
-                    yp_draw_tooltip();
-
-                    // Dragger update.
-                    yp_get_handler();
-
-                }, 10);
+                update_drag_handle_position();
 
             }
 
 
             // Resort media query by media numbers.
-            function yp_resort_styles(){
+            function resort_style_data_positions(){
 
-                var styleArea = iframe.find('.yp-styles-area');
+                var styleArea = the_editor_data();
 
                 // Sort element by selector because Created CSS Will keep all css rules in one selector.
                 styleArea.find("style").each(function(){
@@ -5408,7 +5872,7 @@
                                 if(element.hasClass("yp-resorted") === false){
 
                                     // move from dom.
-                                    that.append(element);
+                                    that.after(element);
 
                                     // add class
                                     element.addClass("yp-resorted");
@@ -5436,10 +5900,10 @@
             }
 
 
-            function yp_create_media_query_before() {
+            function create_media_query_before() {
 
-                if ($("body").hasClass("yp-css-converter")) {
-                    if ($("body").attr("data-responsive-type") != undefined && $("body").attr("data-responsive-type") !== false && $("body").attr("data-responsive-type") != 'desktop') {
+                if ($("body").hasClass("process-by-code-editor")) {
+                    if ($("body").attr("data-responsive-type") !== undefined && $("body").attr("data-responsive-type") !== false && $("body").attr("data-responsive-type") != 'desktop') {
                         return $("body").attr("data-responsive-type");
                     } else {
                         return '';
@@ -5456,7 +5920,7 @@
 
             }
 
-            function yp_create_media_query_after() {
+            function create_media_query_after() {
                 if ($("body").hasClass("yp-responsive-device-mode")) {
                     return '}';
                 } else {
@@ -5477,14 +5941,14 @@
                     $(this).text("below");
                 }
 
-                yp_update_sizes();
+                update_responsive_size_notice();
 
             });
 
             /* ---------------------------------------------------- */
             /* use important if CSS not working without important   */
             /* ---------------------------------------------------- */
-            function yp_insert_important_rule(selector, id, value, prefix, size) {
+            function force_insert_rule(selector, id, value, prefix, size) {
 
                 if (isUndefined(size)) {
                     if ($("body").hasClass("yp-responsive-device-mode")) {
@@ -5496,55 +5960,53 @@
                     }
                 }
 
-                body.addClass("yp-inserting");
-
                 var css = id;
 
                 // Clean value
-                value = value.replace(/ !important/g, "").replace(/!important/g, "");
+                value = value.replace(/\s+?!important/g,'').replace(/\;$/g,'');
 
                 // Remove Style Without important.
-                iframe.find("." + yp_id(selector) + '-' + id + '-style[data-size-mode="' + size + '"]').remove();
+                iframe.find("." + get_id(selector) + '-' + id + '-style[data-size-mode="' + size + '"]').remove();
 
                 // Append Style Area If Not Have.
-                if (iframe.find(".yp-styles-area").length <= 0) {
+                if (the_editor_data().length <= 0) {
                     iframeBody.append("<div class='yp-styles-area'></div>");
                 }
 
                 // Checking.
                 if (value == 'disable' || value == '' || value == 'undefined' || value === null) {
-                    body.removeClass("yp-inserting");
+                    
                     return false;
                 }
 
                 // Append.
-                if (yp_id(selector) != '') {
+                if (get_id(selector) != '') {
 
-                    if (body.hasClass("yp-anim-creator") === true && id != 'position') {
+                    if (is_animate_creator() === true && id != 'position') {
 
-                        iframe.find("." + yp_id(body.attr("data-anim-scene") + css)).remove();
+                        iframe.find("." + get_id(body.attr("data-anim-scene") + css)).remove();
 
-                        iframe.find(".yp-anim-scenes ." + body.attr('data-anim-scene') + "").append('<style data-rule="' + css + '" class="style-' + body.attr("data-anim-scene") + ' scenes-' + yp_id(css) + '-style">' + selector + '{' + css + ':' + value + prefix + ' !important}</style>');
+                        iframe.find(".yp-anim-scenes ." + body.attr('data-anim-scene') + "").append('<style data-rule="' + css + '" class="style-' + body.attr("data-anim-scene") + ' scenes-' + get_id(css) + '-style">' + selector + '{' + css + ':' + value + prefix + ' !important}</style>');
 
                     } else {
 
                         // Responsive Settings
-                        var mediaBefore = yp_create_media_query_before();
-                        var mediaAfter = yp_create_media_query_after();
+                        var mediaBefore = create_media_query_before();
+                        var mediaAfter = create_media_query_after();
 
-                        if(isDefined(size) && body.hasClass("yp-animate-manager-active") === true && body.hasClass("yp-responsive-device-mode") === true){
+                        if(isDefined(size) && body.hasClass(("yp-animate-manager-active")) && body.hasClass(("yp-responsive-device-mode"))){
                             mediaBefore = "@media " + size + "{";
                         }
 
-                        iframe.find(".yp-styles-area").append('<style data-rule="' + css + '" data-size-mode="' + size + '" data-style="' + yp_id(selector) + '" class="' + yp_id(selector) + '-' + id + '-style yp_current_styles">' + mediaBefore + '' + '' + selector + '{' + css + ':' + value + prefix + ' !important}' + '' + mediaAfter + '</style>');
+                        the_editor_data().append('<style data-rule="' + css + '" data-size-mode="' + size + '" data-style="' + get_id(selector) + '" class="' + get_id(selector) + '-' + id + '-style yp_current_styles">' + mediaBefore + '' + '' + selector + '{' + css + ':' + value + prefix + ' !important}' + '' + mediaAfter + '</style>');
 
-                        yp_resort_styles();
+                        resort_style_data_positions();
 
                     }
 
                 }
 
-                body.removeClass("yp-inserting");
+                
 
             }
 
@@ -5552,44 +6014,47 @@
             var typingTimer;
 
             // Keyup bind For CSS Editor.
-            $("#cssData").on("keyup", function() {
+            $("#cssData").on("keyup", function(e) {
 
-                if (body.hasClass("yp-selectors-hide") === false && body.hasClass("yp-css-data-trigger") === false) {
+                var typingTimerS = 0;
+                if(e.originalEvent){
+                    typingTimerS = 900;
+                }
+
+                if (body.hasClass("yp-selectors-hide") === false && body.hasClass("yp-css-data-trigger") === false && typingTimerS !== 0) {
 
                     body.addClass("yp-selectors-hide");
 
                     // Opacity Selector
                     if (iframe.find(".context-menu-active").length > 0) {
-                        iframe.find(".yp-selected").contextMenu("hide");
+                        get_selected_element().contextMenu("hide");
                     }
 
-                    yp_hide_selects_with_animation();
+                    hide_frame_ui(0);
 
                 }
 
                 body.removeClass("yp-css-data-trigger");
 
                 clearTimeout(typingTimer);
-                if ($("#cssData").val) {
-                    typingTimer = setTimeout(function() {
+                typingTimer = setTimeout(function() {
 
-                        if (body.hasClass("yp-selectors-hide") === true && $(".wqNoUi-active").length == 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length == 0) {
+                    if (body.hasClass(("yp-selectors-hide")) && $(".wqNoUi-active").length === 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length === 0) {
 
-                            body.removeClass("yp-selectors-hide");
+                        body.removeClass("yp-selectors-hide");
 
-                            yp_show_selects_with_animation();
+                        show_frame_ui(200);
 
-                        }
+                    }
 
-                        yp_insert_default_options();
-                        return false;
+                    insert_default_options();
+                    return false;
 
-                    }, 1000);
-                }
+                }, typingTimerS);
 
                 // Append all css to iframe.
-                if (iframe.find("#yp-css-data-full").length == 0) {
-                    iframe.find('.yp-styles-area').after("<style id='yp-css-data-full'></style>");
+                if (iframe.find("#yp-css-data-full").length === 0) {
+                    the_editor_data().after("<style id='yp-css-data-full'></style>");
                 }
 
                 // Need to process.
@@ -5599,27 +6064,26 @@
                 iframe.find("#yp-css-data-full").html(editor.getValue());
 
                 // Empty data.
-                iframe.find(".yp-styles-area").empty();
+                the_editor_data().empty();
 
                 // Remove ex.
                 iframe.find(".yp-live-css").remove();
-                //yp_clean();
 
                 // Update
                 $(".yp-save-btn").html(l18_save).removeClass("yp-disabled").addClass("waiting-for-save");
 
                 // Update sceen.
-                yp_resize();
+                gui_update();
 
             });
 
             // Return to data again.
             $(".yp-select-bar").on("mouseover mouseout", function() {
 
-                if (body.hasClass("yp-need-to-process") === true) {
+                if (body.hasClass(("yp-need-to-process"))) {
 
                     // CSS To Data.
-                    yp_process(false, false);
+                    process(false, false);
 
                 }
 
@@ -5628,9 +6092,9 @@
             window.yp_elements = ".yp-selected-handle,.yp-selected-tooltip,.yp-selected-boxed-margin-top,.yp-selected-boxed-margin-bottom,.yp-selected-boxed-margin-left,.yp-selected-boxed-margin-right,.yp-selected-boxed-top,.yp-selected-boxed-bottom,.yp-selected-boxed-left,.yp-selected-boxed-right,.yp-selected-others-box,.yp-edit-menu,.yp-selected-boxed-padding-top,.yp-selected-boxed-padding-bottom,.yp-selected-boxed-padding-left,.yp-selected-boxed-padding-right";
 
             // Hide Slowly
-            function yp_hide_selects_with_animation() {
+            function hide_frame_ui(number) {
 
-                if (!body.hasClass("yp-content-selected")) {
+                if (!is_content_selected()) {
                     return false;
                 }
 
@@ -5638,18 +6102,18 @@
                     return false;
                 }
 
-                yp_draw();
+                draw();
 
                 iframe.find(window.yp_elements).stop().animate({
                     opacity: 0
-                }, 200);
+                }, number);
 
             }
 
             // Show Slowly.
-            function yp_show_selects_with_animation() {
+            function show_frame_ui(number) {
 
-                if (!body.hasClass("yp-content-selected")) {
+                if (!is_content_selected()) {
                     return false;
                 }
 
@@ -5657,15 +6121,15 @@
                     return false;
                 }
 
-                if (iframe.find(".yp-selected-boxed-top").css("opacity") != 0) {
+                if (iframe.find(".yp-selected-boxed-top").css("opacity") != "0") {
                     return false;
                 }
 
-                yp_draw();
+                draw();
 
                 iframe.find(window.yp_elements).stop().animate({
                     opacity: 1
-                }, 200);
+                }, number);
 
             }
 
@@ -5683,10 +6147,10 @@
 
                         // Opacity Selector
                         if (iframe.find(".context-menu-active").length > 0) {
-                            iframe.find(".yp-selected").contextMenu("hide");
+                            get_selected_element().contextMenu("hide");
                         }
 
-                        yp_hide_selects_with_animation();
+                        hide_frame_ui(200);
 
                     }
 
@@ -5697,11 +6161,11 @@
                         return false;
                     }
 
-                    if (body.hasClass("yp-selectors-hide") === true && $(".wqNoUi-active").length == 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length == 0) {
+                    if (body.hasClass(("yp-selectors-hide")) && $(".wqNoUi-active").length === 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length === 0) {
 
                         body.removeClass("yp-selectors-hide");
 
-                        yp_show_selects_with_animation();
+                        show_frame_ui(200);
 
                     }
 
@@ -5711,9 +6175,9 @@
             // If on iframe, always show borders.
             iframe.on("mouseover", iframe, function(){
 
-                if ($(".wqNoUi-active").length == 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length == 0) {
+                if ($(".wqNoUi-active").length === 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length === 0) {
 
-                    yp_show_selects_with_animation();
+                    show_frame_ui(200);
 
                 }
 
@@ -5722,33 +6186,244 @@
             // YP bar leave: show.
             iframe.on("mouseleave", ".yp-select-bar", function(){
 
-                if (body.hasClass("yp-selectors-hide") === true && $(".wqNoUi-active").length == 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length == 0) {
+                if (body.hasClass(("yp-selectors-hide")) && $(".wqNoUi-active").length === 0 && $("body").hasClass("autocomplete-active") === false && $(".yp-select-bar .tooltip").length === 0) {
 
                     body.removeClass("yp-selectors-hide");
 
-                    yp_show_selects_with_animation();
+                    show_frame_ui(200);
 
                 }
 
             });
 
-            function mediaAttr(a) {
-                return a.toString().replace(/\{/g, '').replace(/@media /g, '').replace(/@media/g, '');
+
+            // Get current media condition
+            function get_media_condition(){
+
+                // Default
+                var size = 'desktop';
+                
+                // Is res?
+                if ($("body").hasClass("yp-responsive-device-mode")) {
+
+                    var frameWidth = $("#iframe").width();
+                    var media = $(".media-control").attr("data-code");
+                    size = '(' + media + ':' + frameWidth + 'px)';
+
+                }
+
+                return size;
+
             }
 
-            // CSS To Yellow Pencil Data.
-            function yp_cssToData(type) {
 
-                body.addClass("process-by-code-editor");
+            // Getting current CSS Selectors
+            function get_all_selectors(){
 
                 // Source.
                 var source = editor.getValue();
 
-                // Nth child
-                source = source.replace(/:nth-child\((.*?)\)/g, '\.nth-child\.$1\.');
+                source = get_minimized_css(source,true);
 
-                // Not
-                source = source.replace(/:not\((.*?)\)/g, '\.notYP$1YP');
+                // if no source, stop.
+                if (source == '') {
+                    return false;
+                }
+
+                // if have a problem in source, stop.
+                if (source.split('{').length != source.split('}').length) {
+                    return false;
+                }
+
+                source = source.toString().replace(/\}\,/g, "}");
+
+                // Getting All CSS Selectors.
+                var allSelectors = array_cleaner(source.replace(/\{(.*?)\}/g, '|BREAK|').split("|BREAK|"));
+
+                return allSelectors;
+
+
+            }
+
+            // Reset selected element
+            function reset_selected_element(childs){
+
+                // If not have an selected element
+                if(!is_content_selected()){
+                    return false;
+                }
+
+                // Selectors
+                var array = get_all_selectors();
+
+                // If not have selectors
+                if(array.length <= 0){
+                    return false;
+                }
+
+                // Each all selectors
+                for(var i = 0; i < array.length; i++){
+
+                    var searchSelector = get_foundable_query(array[i],true,true,true);
+
+
+                    if(childs === false){
+
+                        // Target is selected element.
+                        if(iframe.find(searchSelector).hasClass("yp-selected")){
+
+                            // remove
+                            iframe.find("[data-style='"+get_id(array[i])+"']").remove();
+
+                        }
+
+                    }
+
+                    if(childs === true){
+
+                        // Target is selected element and childs.
+                        if(iframe.find(searchSelector).parents(".yp-selected").length > 0){
+
+                            // remove
+                            iframe.find("[data-style='"+get_id(array[i])+"']").remove();
+
+                        }
+
+                    }
+
+                }
+
+                // Update
+                option_change();
+
+            }
+
+
+            // Clean not:(X) etc. Not want "(" sysbol.
+            function nice_selectors(data,start){
+
+                if(start === true){
+
+                    // Nth child
+                    data = data.replace(/:nth-child\((.*?)\)/g, '\.nth-child\.$1\.');
+
+                    // Not
+                    data = data.replace(/:not\((.*?)\)/g, '\.notYP$1YP');
+
+                    // lang
+                    data = data.replace(/:lang\((.*?)\)/g, '\.langYP$1YP');
+
+                    // nth-last-child()
+                    data = data.replace(/:nth-last-child\((.*?)\)/g, '\.nth-last-child\.$1\.');
+
+                    // nth-last-of-type()
+                    data = data.replace(/:nth-last-of-type\((.*?)\)/g, '\.nth-last-of-type\.$1\.');
+
+                    // nth-of-type()
+                    data = data.replace(/:nth-of-type\((.*?)\)/g, '\.nth-of-type\.$1\.');
+
+                }else{
+
+                    // Nth child
+                    data = data.replace(/\.nth-child\.(.*?)\./g, ':nth-child($1)');
+
+                    // Not
+                    data = data.replace(/\.notYP(.*?)YP/g, ':not($1)');
+
+                    // lang
+                    data = data.replace(/\.langYP(.*?)YP/g, ':lang($1)');
+
+                    // nth-last-child()
+                    data = data.replace(/\.nth-last-child\.(.*?)\./g, ':nth-last-child($1)');
+
+                    // nth-last-of-type()
+                    data = data.replace(/\.nth-last-of-type\.(.*?)\./g, ':nth-last-of-type($1)');
+
+                    // nth-of-type()
+                    data = data.replace(/\.nth-of-type\.(.*?)\./g, ':nth-of-type($1)');
+
+                }
+
+                return data;
+
+            }
+
+
+            // Super basic insert any css rule to plugin data.
+            function get_insert_rule_basic(selector, id, value, size) {
+
+                var appendData = '';
+
+                if (isUndefined(size)) {
+                    if ($("body").hasClass("yp-responsive-device-mode")) {
+                        var frameW = $("#iframe").width();
+                        var format = $(".media-control").attr("data-code");
+                        size = '(' + format + ':' + frameW + 'px)';
+                    } else {
+                        size = 'desktop';
+                    }
+                }
+
+                // Delete same data.
+                var exStyle = iframe.find("." + get_id(selector) + '-' + id + '-style[data-size-mode="' + size + '"]');
+                if (exStyle.length > 0) {
+                    if (escape_data_value(exStyle.html()) == value) {
+                        return false;
+                    } else {
+                        exStyle.remove(); // else remove.
+                    }
+                }
+
+                // Delete same for -webkit- prefix: filter and transform.
+                exStyle = iframe.find("." + get_id(selector) + '-' + "-webkit-" + id + '-style[data-size-mode="' + size + '"]');
+                if (exStyle.length > 0) {
+                    if (escape_data_value(exStyle.html()) == value){
+                        
+                        return false;
+                    } else {
+                        exStyle.remove(); // else remove.
+                    }
+                }
+
+                // Append style area.
+                if (the_editor_data().length <= 0) {
+                    iframeBody.append("<div class='yp-styles-area'></div>");
+                }
+
+                // Append default value.
+                if (get_id(selector) != ''){
+
+                    var dpt = ':';
+
+                    // Responsive setting
+                    var mediaBefore = create_media_query_before();
+                    var mediaAfter = create_media_query_after();
+
+                    if (isDefined(size) && body.hasClass(("yp-animate-manager-active")) && body.hasClass(("yp-responsive-device-mode"))) {
+                        mediaBefore = "@media " + size + "{";
+                    }
+
+                    // Append
+                    appendData = '<style data-rule="' + id + '" data-size-mode="' + size + '" data-style="' + get_id(selector) + '" class="' + get_id(selector) + '-' + id + '-style yp_current_styles">' + mediaBefore + '' + '' + selector + '{' + id + dpt + value + '}' + '' + mediaAfter + '</style>';
+
+                }
+
+                return appendData;
+
+            }
+
+
+            // CSS To Yellow Pencil Data.
+            function css_to_data(type) {
+
+                // add classses and use as flag.
+                body.addClass("process-by-code-editor").attr("data-responsive-type", type);
+
+                // Source.
+                var source = editor.getValue();
+
+                // Clean "()" symbol for lets to process CSS as well.
+                source = nice_selectors(source,true);
 
                 // Clean.
                 source = source.replace(/(\r\n|\n|\r)/g, "").replace(/\t/g, '');
@@ -5757,12 +6432,11 @@
                 source = source.replace(/\/\*(.*?)\*\//g, "");
 
                 // clean.
-                source = source.replace(/\}\s+\}/g, '}}').replace(/\s+\{/g, '{');
+                source = source.replace(/\}\s+\}/g, '}}').replace(/\s+\{/g, '{').replace(/\}\s+/g,'}');
 
                 // clean.
                 source = source.replace(/\s+\}/g, '}').replace(/\{\s+/g, '{');
-
-                source = source.replace(/\”/g,'"').replace(/“/g,'"');
+                source = filter_bad_quies(source);
 
                 // If responsive
                 if (type != 'desktop') {
@@ -5794,26 +6468,33 @@
                     return false;
                 }
 
-                var CSSRules;
-                var selector;
+                var selector,insertData = '';
 
                 // IF Desktop; Remove All Rules. (because first call by desktop)
                 if (type == 'desktop') {
-                    iframe.find(".yp-styles-area").empty();
+                    the_editor_data().empty();
                 }
 
+                // Replace ","" after "}".
                 source = source.toString().replace(/\}\,/g, "}");
 
                 // Getting All CSS Selectors.
-                var allSelectors = yp_cleanArray(source.replace(/\{(.*?)\}/g, '|BREAK|').split("|BREAK|"));
+                var allSelectors = array_cleaner(source.replace(/\{(.*?)\}/g, '|BREAK|').split("|BREAK|"));
+
+                // add to first.
+                source = "}" + source;
+
+                // Make } it two for get multiple selectors rules.
+                source = source.replace(/\}/g,"}}");
 
                 // Each All Selectors
                 for (var i = 0; i < allSelectors.length; i++) {
 
                     // Get Selector.
-                    selector = $.trim(allSelectors[i]);
+                    selector = space_cleaner(allSelectors[i]);
 
-                    if (selector != '}' && selector != '}}' && selector != '{' && selector != '' && selector != ' ' && selector != '  ' && selector != '     ') {
+                    // Valid selector
+                    if (!selector.match(/\}|\{/g)) {
 
                         // Clean selector with regex.
                         var selectorRegex = selector
@@ -5827,14 +6508,11 @@
                         .replace(/\:/g, "\\:")  // :
                         .replace(/\+/g, "\\+"); // +
                         
-                        source = "}" + source;
-
                         // Getting CSS Rules by selector.
-                        CSSRules = source.match(new RegExp("\}" + selectorRegex + '{(.*?)}', 'g'));
+                        var CSSRules = source.match(new RegExp("\}" + selectorRegex + '{(.*?)}', 'g'));
 
-                        selector = selector.replace(/\.nth-child\.(.*?)\./g, ':nth-child($1)');
-
-                        selector = selector.replace(/\.notYP(.*?)YP/g, ':not($1)');
+                        // Back up cleanen "(" symbols
+                        selector = nice_selectors(selector,false);
 
                         if (CSSRules !== null && CSSRules != '') {
 
@@ -5851,7 +6529,7 @@
 
                                 ruleAll = $.trim(CSSRules[iq]);
 
-                                if (typeof ruleAll != undefined && ruleAll.length >= 3 && ruleAll.indexOf(":") != -1) {
+                                if (typeof ruleAll !== undefined && ruleAll.length >= 3 && ruleAll.indexOf(":") != -1) {
 
                                     ruleName = ruleAll.split(":")[0];
 
@@ -5859,36 +6537,10 @@
 
                                         ruleVal = ruleAll.split(':').slice(1).join(':');
 
-                                        ruleVal = ruleVal;
+                                        if (ruleVal != '') {
 
-                                        if (ruleVal != '' && ruleName.indexOf("-webkit-filter") === -1 && ruleName.indexOf("-webkit-transform") === -1) {
-
-                                            if ($(".yp_debug").css(ruleName) != undefined || ruleName != 'background-parallax' || ruleName != 'background-parallax-speed' || ruleName != 'background-parallax-x') {
-
-                                                $(".yp_debug").removeAttr("style");
-
-                                                // for not use important tag.
-                                                body.addClass("yp-css-converter");
-
-                                                // for know what is media query.
-                                                body.attr("data-responsive-type", type);
-
-                                                // Adding classes.
-                                                iframe.find(selector).addClass("yp_selected").addClass("yp_onscreen").addClass("yp_hover").addClass("yp_focus").addClass("yp_click");
-
-                                                // Update
-                                                yp_insert_rule(selector, ruleName, ruleVal, '', mediaAttr(type));
-
-                                                // remove class after update.
-                                                body.removeClass("yp-css-converter");
-
-                                                // remove attr
-                                                body.removeAttr("data-responsive-type");
-
-                                                // Removing classes.
-                                                iframe.find(selector).removeClass("yp_selected").removeClass("yp_onscreen").removeClass("yp_hover").removeClass("yp_focus").removeClass("yp_click");
-
-                                            }
+                                            // Update
+                                            insertData += get_insert_rule_basic(selector, ruleName, ruleVal, type.toString().replace(/\{/g, '').replace(/@media /g, '').replace(/@media/g, ''));
 
                                         }
 
@@ -5904,21 +6556,28 @@
 
                 }
 
+                // insert at end.
+                if(insertData != ''){
+                    the_editor_data().append(insertData);
+                    resort_style_data_positions();
+                }
+
+                // remove classes when end.
+                body.removeAttr("data-responsive-type");
+
             }
 
             /* ---------------------------------------------------- */
             /* Appy CSS To theme for demo                           */
             /* ---------------------------------------------------- */
-            function yp_insert_rule(selector, id, value, prefix, size) {
+            function insert_rule(selector, id, value, prefix, size) {
+
+                if(selector === null){
+                    selector = get_current_selector();
+                }
 
                 if (isUndefined(size)){
-                    if ($("body").hasClass("yp-responsive-device-mode")) {
-                        var frameW = $("#iframe").width();
-                        var format = $(".media-control").attr("data-code");
-                        size = '(' + format + ':' + frameW + 'px)';
-                    } else {
-                        size = 'desktop';
-                    }
+                    size = get_media_condition();
                 }
 
                 prefix = $.trim(prefix);
@@ -5933,18 +6592,15 @@
 
                 var css = id;
 
-                // adding class
-                body.addClass("yp-inserting");
-
                 // Delete basic CSS.
-                yp_clean_live_css(id, false);
+                delete_live_css(id, false);
 
                 // delete live css.
                 iframe.find(".yp-live-css").remove();
 
                 // stop if empty
                 if (value == '' || value == ' ') {
-                    body.removeClass("yp-inserting");
+                    
                     return false;
                 }
 
@@ -5969,14 +6625,13 @@
                 }
 
                 // Anim selector.
-                if (body.hasClass("yp-anim-creator") === true && id != 'position') {
+                if (is_animate_creator() === true && id != 'position') {
 
-                    selector = $.trim(selector.replace(/body.yp-scene-[0-9]/g, ''));
-                    selector = yp_add_class_to_body(selector, "yp-" + body.attr("data-anim-scene"));
+                    selector = $.trim(selector.replace(/(body)?\.yp-scene-[0-9]/g, ''));
+                    selector = add_class_to_body(selector, "yp-" + body.attr("data-anim-scene"));
 
                     // Dont add any animation rule.
                     if (id.indexOf('animation') != -1) {
-                        body.removeClass("yp-inserting");
                         return false;
                     }
 
@@ -5984,13 +6639,13 @@
 
                 // Stop.
                 if (css == 'set-animation-name') {
-                    body.removeClass("yp-inserting");
+                    
                     return false;
                 }
 
                 if (id == 'background-color' || id == 'color' || id == 'border-color' || id == 'border-left-color' || id == 'border-right-color' || id == 'border-top-color' || id == 'border-bottom-color') {
 
-                    var valueCheck = $.trim(value).replace("#", '').replace("!important", '');
+                    var valueCheck = $.trim(value).replace("#", '');
 
                     if (valueCheck == 'red') {
                         value = '#FF0000';
@@ -6038,48 +6693,111 @@
 
                 }
 
+                // Set defaults
+                if(id == 'border-width'){
+
+                    // Set default values
+                    $.each(['border-top-width','border-left-width','border-right-width','border-bottom-width'], function(i, v) {
+                        set_default_value(v);
+                    });
+
+                }
+
+                if(id == 'border-color'){
+
+                    // Set default values
+                    $.each(['border-top-color','border-left-color','border-right-color','border-bottom-color'], function(i, v) {
+                        set_default_value(v);
+                    });
+
+                }
+
+                if(id == 'border-style'){
+
+                    // Set default values
+                    $.each(['border-top-style','border-left-style','border-right-style','border-bottom-style'], function(i, v) {
+                        set_default_value(v);
+                    });
+
+                }
+
+                // When border-xxxx-style change
+                if(id.indexOf("border-") != -1 && id.indexOf("-style") != -1 && id != 'border-style'){
+
+                    // update default value for;
+                    set_default_value("border-style");
+
+                }
+
+                // When border-xxxx-style change
+                if(id.indexOf("border-") != -1 && id.indexOf("-color") != -1 && id != 'border-color'){
+
+                    // update default value for;
+                    set_default_value("border-color");
+
+                }
+
+                // When border-xxxx-style change
+                if(id.indexOf("border-") != -1 && id.indexOf("-width") != -1 && id != 'border-width'){
+
+                    // update default value for;
+                    set_default_value("border-width");
+
+                }
+
+
+                // also using in bottom.
+                var duration,delay;
+
                 // Animation name play.
                 if (id == 'animation-name' || id == 'animation-play' || id == 'animation-iteration' || id == 'animation-duration') {
 
-                    if($(".yp-animate-manager-active").length == 0){
+                    if($(".yp-animate-manager-active").length === 0 && value != 'none'){
 
-                        var delay = iframe.find(".yp-selected").css("animation-duration");
+                        duration = get_selected_element().css("animation-duration");
+                        delay = get_selected_element().css("animation-delay");
 
-                        if (isUndefined(delay)) {
-                            delay = '1000';
-                        } else {
-                            delay = delay.replace("ms", ""); // ms delete
-                            if(delay.indexOf(".") != -1){
+                        // Getting right time delay if have multiple animations.
+                        var newDelay = get_multiple_delay(duration,delay);
 
-                                var ln = parseFloat(delay).toString().split(".")[1].length;
-                                delay = delay.replace(".","");
-
-                                if(ln == 2){
-                                    delay = delay.replace("s", "0");
-                                }else if(ln == 1){
-                                    delay = delay.replace("s", "00");
-                                }
-                                
-                            }else{
-                                delay = delay.replace("s", "000");
-                            }
+                        if(newDelay !== false){
+                            delay = parseFloat(newDelay);
+                        }else if(isUndefined(delay)){
+                            delay = 0;
+                        }else{
+                            delay = parseFloat(duration_ms(delay)); // delay
                         }
-                        
-                        delay = parseFloat(delay) + 200;
+
+                        if (isUndefined(duration)) {
+                            duration = 1000;
+                        } else {
+                            duration = parseFloat(duration_ms(duration)); // duration
+                        }
+
+                        var waitDelay = delay + duration;
+
+                        if(waitDelay === 0){
+                            waitDelay = 1000;
+                        }
+
+                        waitDelay = waitDelay + 100;
 
                         // Add class.
                         body.addClass("yp-hide-borders-now yp-force-hide-select-ui");
-                        clearTimeout(tBh);
+                        
+                        clear_animation_timer();
 
-                        var tBh = setTimeout(function() {
+                        window.animationTimer1 = setTimeout(function(){
 
                             // remove class.
                             body.removeClass("yp-hide-borders-now yp-force-hide-select-ui");
 
-                            // Update.
-                            yp_draw();
+                            element_animation_end();
 
-                        }, delay);
+                            // Update.
+                            draw();
+
+                        }, waitDelay);
 
                     }
 
@@ -6088,7 +6806,7 @@
                 // If has style attr. // USE IMPORTANT
                 if (css != 'top' && css != 'bottom' && css != 'left' && css != 'right' && css != 'height' && css != 'width') {
 
-                    var element = iframe.find(".yp-selected");
+                    var element = get_selected_element();
 
                     if (isDefined(element.attr("style"))) {
 
@@ -6101,9 +6819,9 @@
                                 if ($.trim(obj[item].split(":")[0]) == css) {
 
                                     // Use important.
-                                    if (css != 'position' && value != 'relative') {
-                                        yp_insert_important_rule(selector, id, value, prefix, size);
-                                        body.removeClass("yp-inserting");
+                                    if (css != 'position' && css != 'animation-fill-mode') {
+                                        force_insert_rule(selector, id, value, prefix, size);
+                                        
                                         return false;
                                     }
 
@@ -6113,9 +6831,9 @@
                         } else {
                             if ($.trim(element.attr("style")).split(":")[0] == css) {
 
-                                if (css != 'position' && value != 'relative') {
-                                    yp_insert_important_rule(selector, id, value, prefix, size);
-                                    body.removeClass("yp-inserting");
+                               if (css != 'position' && css != 'animation-fill-mode') {
+                                    force_insert_rule(selector, id, value, prefix, size);
+                                    
                                     return false;
                                 }
 
@@ -6123,36 +6841,6 @@
                         }
 
                     }
-                }
-
-                // border style.
-                if (id == 'border-style') {
-                    yp_insert_rule(selector, 'border-left-style', value, prefix, size);
-                    yp_insert_rule(selector, 'border-right-style', value, prefix, size);
-                    yp_insert_rule(selector, 'border-top-style', value, prefix, size);
-                    yp_insert_rule(selector, 'border-bottom-style', value, prefix, size);
-                    body.removeClass("yp-inserting");
-                    return false;
-                }
-
-                // border width.
-                if (id == 'border-width') {
-                    yp_insert_rule(selector, 'border-left-width', value, prefix, size);
-                    yp_insert_rule(selector, 'border-right-width', value, prefix, size);
-                    yp_insert_rule(selector, 'border-top-width', value, prefix, size);
-                    yp_insert_rule(selector, 'border-bottom-width', value, prefix, size);
-                    body.removeClass("yp-inserting");
-                    return false;
-                }
-
-                // border color.
-                if (id == 'border-color') {
-                    yp_insert_rule(selector, 'border-left-color', value, prefix, size);
-                    yp_insert_rule(selector, 'border-right-color', value, prefix, size);
-                    yp_insert_rule(selector, 'border-top-color', value, prefix, size);
-                    yp_insert_rule(selector, 'border-bottom-color', value, prefix, size);
-                    body.removeClass("yp-inserting");
-                    return false;
                 }
 
                 // Background image fix.
@@ -6176,19 +6864,20 @@
                 // Background color
                 if (id == 'background-color') {
                     if ($("#yp-background-image").val() != 'none' && $("#yp-background-image").val() != '') {
-                        yp_insert_important_rule(selector, id, value, prefix, size);
-                        body.removeClass("yp-inserting");
+                        force_insert_rule(selector, id, value, prefix, size);
+                        
                         return false;
                     }
                 }
 
-                if (id == 'animation-name' && $(".yp-animate-manager-active").length == 0){
-                    yp_set_default(".yp-selected", yp_id_hammer($("#animation-duration-group")), false);
-                    yp_set_default(".yp-selected", yp_id_hammer($("#animation-delay-group")), false);
+                if (id == 'animation-name' && $(".yp-animate-manager-active").length === 0){
+                    set_default_value('animation-duration');
+                    set_default_value('animation-delay');
+                    set_default_value('animation-fill-mode');
                 }
 
                 // Animation Name Settings. (Don't playing while insert by CSS editor or animation manager)
-                if (body.hasClass("process-by-code-editor") === false && $(".yp-animate-manager-active").length == 0) {
+                if (body.hasClass("process-by-code-editor") === false && $(".yp-animate-manager-active").length === 0) {
 
                     if (id == 'animation-name' || id == 'animation-duration' || id == 'animation-delay') {
 
@@ -6196,17 +6885,36 @@
                             selector = selector.replace(/\.yp_onscreen/g, '').replace(/\.yp_hover/g, '').replace(/\.yp_focus/g, '').replace(/\.yp_click/g, '');
                         }
 
-                        var selectorNew = selector.split(":");
+                        var play = '';
                         if($("body").hasClass("yp-animate-manager-mode") === false){
-                            var play = "." + $("#yp-animation-play").val();
-                        }else{
-                            var play = '';
+                            play = "." + $("#yp-animation-play").val();
                         }
 
-                        if (selectorNew[1] != undefined) {
-                            selector = selectorNew[0] + play + ":" + selectorNew[1];
-                        } else {
-                            selector = selectorNew[0] + play;
+                        // Getting array
+                        var selectorNew = selector.split(":");
+
+                        // Check if there have : 
+                        if(selectorNew.length > 0){
+
+                            // Getting all prev selectors until last :
+                            var prevSelectors = '';
+
+                            for(var y = 0; y < selectorNew.length-1; y++){
+                                prevSelectors = prevSelectors + selectorNew[y];
+                            }
+
+                            if (selectorNew[selectorNew.length-1] == 'hover' || selectorNew[selectorNew.length-1] == 'focus') {
+                                selector = prevSelectors + play + ":" + selectorNew[selectorNew.length-1];
+                            }else{
+
+                                selector = selector + play;
+
+                            }
+
+                        }else{ // default
+
+                            selector = selector + play;
+
                         }
 
                     }
@@ -6218,23 +6926,24 @@
 
                 if (isUndefined(selection)) {
 
-                    var selection = '';
+                    selection = '';
 
                 } else {
 
-                    if(!$("body").hasClass("yp-processing-now")){
-                        selector = yp_add_class_to_body(selector, 'yp-selector-' + selection.replace(':', ''));
+                    if(!body.hasClass("yp-processing-now") && selector.indexOf("yp_onscreen") == -1 && selector.indexOf("yp_click") == -1 && selector.indexOf("yp_focus") == -1 && selector.indexOf("yp_hover") == -1 && id != 'animation-play'){
+
+                        selector = add_class_to_body(selector, 'yp-selector-' + selection.replace(':', ''));
 
                         selector = selector.replace('body.yp-selector-' + selection.replace(':', '') + ' body.yp-selector-' + selection.replace(':', '') + ' ', 'body.yp-selector-' + selection.replace(':', '') + ' ');
+
                     }
 
                 }
 
                 // Delete same data.
-                var exStyle = iframe.find("." + yp_id(selector) + '-' + id + '-style[data-size-mode="' + size + '"]');
+                var exStyle = iframe.find("." + get_id(selector) + '-' + id + '-style[data-size-mode="' + size + '"]');
                 if (exStyle.length > 0){
-                    if (exStyle.html().split(":")[1].split("}")[0] == value) {
-                        body.removeClass("yp-inserting");
+                    if (escape_data_value(exStyle.html()) == value) {
                         return false;
                     } else {
                         exStyle.remove(); // else remove.
@@ -6242,11 +6951,10 @@
                 }
 
                 // Delete same data for anim.
-                if ($("body").hasClass("yp-anim-creator")) {
-                    var exStyle = iframe.find(".yp-anim-scenes ." + $('body').attr('data-anim-scene') + " .scenes-" + yp_id(id) + "-style");
+                if (is_animate_creator()) {
+                    exStyle = iframe.find(".yp-anim-scenes ." + $('body').attr('data-anim-scene') + " .scenes-" + get_id(id) + "-style");
                     if (exStyle.length > 0) {
-                        if (exStyle.html().split(":")[1].split("}")[0] == value) {
-                            body.removeClass("yp-inserting");
+                        if (escape_data_value(exStyle.html()) == value) {
                             return false;
                         } else {
                             exStyle.remove(); // else remove.
@@ -6255,10 +6963,9 @@
                 }
 
                 // Delete same data for filter and transform -webkit- prefix.
-                var exStyle = iframe.find("." + yp_id(selector) + '-' + "-webkit-" + id + '-style[data-size-mode="' + size + '"]');
+                exStyle = iframe.find("." + get_id(selector) + '-' + "-webkit-" + id + '-style[data-size-mode="' + size + '"]');
                 if (exStyle.length > 0) {
-                    if (exStyle.html().split(":")[1].split("}")[0] == value) {
-                        body.removeClass("yp-inserting");
+                    if (escape_data_value(exStyle.html()) == value) {
                         return false;
                     } else {
                         exStyle.remove(); // else remove.
@@ -6266,11 +6973,10 @@
                 }
 
                 // Delete same data for filter and transform -webkit- prefix on anim scenes.
-                if ($("body").hasClass("yp-anim-creator")) {
-                    var exStyle = iframe.find(".yp-anim-scenes ." + $('body').attr('data-anim-scene') + " .scenes-webkit" + yp_id(id) + "-style");
+                if (is_animate_creator()) {
+                    exStyle = iframe.find(".yp-anim-scenes ." + $('body').attr('data-anim-scene') + " .scenes-webkit" + get_id(id) + "-style");
                     if (exStyle.length > 0) {
-                        if (exStyle.html().split(":")[1].split("}")[0] == value) {
-                            body.removeClass("yp-inserting");
+                        if (escape_data_value(exStyle.html()) == value) {
                             return false;
                         } else {
                             exStyle.remove(); // else remove.
@@ -6282,20 +6988,20 @@
                 if (id == 'filter' || id == 'transform') {
 
                     if (value != 'disable' && value != '' && value != 'undefined' && value !== null) {
-                        yp_insert_rule(selector, "-webkit-" + id, value, prefix, size);
+                        insert_rule(selector, "-webkit-" + id, value, prefix, size);
                     }
 
                 }
 
                 // Append style area.
-                if (iframe.find(".yp-styles-area").length <= 0) {
+                if (the_editor_data().length <= 0) {
                     iframeBody.append("<div class='yp-styles-area'></div>");
                 }
 
                 // No px em etc for this options.
                 if (id == 'z-index' || id == 'opacity' || id == 'background-parallax-speed' || id == 'background-parallax-x' || id == 'blur-filter' || id == 'grayscale-filter' || id == 'brightness-filter' || id == 'contrast-filter' || id == 'hue-rotate-filter' || id == 'saturate-filter' || id == 'sepia-filter' || id.indexOf("-transform") != -1) {
                     if (id != 'text-transform' && id != '-webkit-transform') {
-                        value = yp_num(value);
+                        value = number_filter(value);
                         prefix = '';
                     }
                 }
@@ -6303,124 +7009,10 @@
                 // Filter Default options.
                 if (id == 'blur-filter' || id == 'grayscale-filter' || id == 'brightness-filter' || id == 'contrast-filter' || id == 'hue-rotate-filter' || id == 'saturate-filter' || id == 'sepia-filter') {
 
-                    // Getting all other options.
-                    var blur = "blur(" + $.trim($("#blur-filter-value").val()) + "px)";
-                    var grayscale = "grayscale(" + $.trim($("#grayscale-filter-value").val()) + ")";
-                    var brightness = "brightness(" + $.trim($("#brightness-filter-value").val()) + ")";
-                    var contrast = "contrast(" + $.trim($("#contrast-filter-value").val()) + ")";
-                    var hueRotate = "hue-rotate(" + $.trim($("#hue-rotate-filter-value").val()) + "deg)";
-                    var saturate = "saturate(" + $.trim($("#saturate-filter-value").val()) + ")";
-                    var sepia = "sepia(" + $.trim($("#sepia-filter-value").val()) + ")";
+                    var filterData = filter_generator(true);
 
-                    // Check if disable or not
-                    if ($("#blur-filter-group .yp-disable-btn").hasClass("active")) {
-                        blur = '';
-                    }
-
-                    if ($("#grayscale-filter-group .yp-disable-btn").hasClass("active")) {
-                        grayscale = '';
-                    }
-
-                    if ($("#brightness-filter-group .yp-disable-btn").hasClass("active")) {
-                        brightness = '';
-                    }
-
-                    if ($("#contrast-filter-group .yp-disable-btn").hasClass("active")) {
-                        contrast = '';
-                    }
-
-                    if ($("#hue-rotate-filter-group .yp-disable-btn").hasClass("active")) {
-                        hueRotate = '';
-                    }
-
-                    if ($("#saturate-filter-group .yp-disable-btn").hasClass("active")) {
-                        saturate = '';
-                    }
-
-                    if ($("#sepia-filter-group .yp-disable-btn").hasClass("active")) {
-                        sepia = '';
-                    }
-
-                    // Dont insert if no data.
-                    if (blur == 'blur(px)' || $("#blur-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            blur = '';
-                        } else {
-                            blur = 'blur(0px)';
-                        }
-
-                    }
-
-                    if (grayscale == 'grayscale()' || $("#grayscale-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            grayscale = '';
-                        } else {
-                            grayscale = 'grayscale(0)';
-                        }
-
-                    }
-
-                    if (brightness == 'brightness()' || $("#brightness-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            brightness = '';
-                        } else {
-                            brightness = 'brightness(1)';
-                        }
-
-                    }
-
-                    if (contrast == 'contrast()' || $("#contrast-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            contrast = '';
-                        } else {
-                            contrast = 'contrast(1)';
-                        }
-
-                    }
-
-                    if (hueRotate == 'hue-rotate(deg)' || $("#hue-rotate-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            hueRotate = '';
-                        } else {
-                            hueRotate = 'hue-rotate(0deg)';
-                        }
-
-                    }
-
-                    if (saturate == 'saturate()' || $("#saturate-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            saturate = '';
-                        } else {
-                            saturate = 'saturate(0)';
-                        }
-
-                    }
-
-                    if (sepia == 'sepia()' || $("#sepia-filter-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            sepia = '';
-                        } else {
-                            sepia = 'sepia(0)';
-                        }
-
-                    }
-
-                    // All data.
-                    var filterData = $.trim(blur + " " + brightness + " " + contrast + " " + grayscale + " " + hueRotate + " " + saturate + " " + sepia);
-
-                    if (filterData == '' || filterData == ' ') {
-                        filterData = 'disable';
-                    }
-
-                    yp_insert_rule(selector, 'filter', filterData, '', size);
-                    body.removeClass("yp-inserting");
+                    insert_rule(selector, 'filter', filterData, '', size);
+                    
                     return false;
 
                 }
@@ -6431,109 +7023,14 @@
 
                     body.addClass("yp-has-transform");
 
-                    // Getting all other options.
-                    var scale = "scale(" + $.trim($("#scale-transform-value").val()) + ")";
-                    var rotate = "rotate(" + $.trim($("#rotate-transform-value").val()) + "deg)";
-                    var translateX = "translatex(" + $.trim($("#translate-x-transform-value").val()) + "px)";
-                    var translateY = "translatey(" + $.trim($("#translate-y-transform-value").val()) + "px)";
-                    var skewX = "skewx(" + $.trim($("#skew-x-transform-value").val()) + "deg)";
-                    var skewY = "skewy(" + $.trim($("#skew-y-transform-value").val()) + "deg)";
+                    var translateData = transform_generator(true);
 
-                    // Check if disable or not
-                    if ($("#scale-transform-group .yp-disable-btn").hasClass("active")) {
-                        scale = '';
+                    insert_rule(selector, 'transform', translateData, '', size);
+
+                    if(translateData == 'none' || translateData == 'disable'){
+                        body.removeClass("yp-has-transform");
                     }
-
-                    if ($("#rotate-transform-group .yp-disable-btn").hasClass("active")) {
-                        rotate = '';
-                    }
-
-                    if ($("#translate-x-transform-group .yp-disable-btn").hasClass("active")) {
-                        translateX = '';
-                    }
-
-                    if ($("#translate-y-transform-group .yp-disable-btn").hasClass("active")) {
-                        translateY = '';
-                    }
-
-                    if ($("#skew-x-transform-group .yp-disable-btn").hasClass("active")) {
-                        skewX = '';
-                    }
-
-                    if ($("#skew-y-transform-group .yp-disable-btn").hasClass("active")) {
-                        skewY = '';
-                    }
-
-                    // Dont insert if no data.
-                    if (scale == 'scale()' || $("#scale-transform-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            scale = '';
-                        } else {
-                            scale = 'scale(1)';
-                        }
-
-                    }
-
-                    if (rotate == 'rotate(deg)' || $("#rotate-transform-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            rotate = '';
-                        } else {
-                            rotate = 'rotate(0deg)';
-                        }
-
-                    }
-
-                    if (translateX == 'translatex(px)' || $("#translate-x-transform-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            translateX = '';
-                        } else {
-                            translateX = 'translatex(0px)';
-                        }
-
-                    }
-
-                    if (translateY == 'translatey(px)' || $("#translate-y-transform-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            translateX = '';
-                        } else {
-                            translateX = 'translatey(0px)';
-                        }
-
-                    }
-
-                    if (skewX == 'skewx(deg)' || $("#skew-x-transform-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            skewX = '';
-                        } else {
-                            skewX = 'skewx(0deg)';
-                        }
-
-                    }
-
-                    if (skewY == 'skewy(deg)' || $("#skew-y-transform-group").hasClass("eye-enable") === false) {
-
-                        if (body.hasClass("yp-anim-creator") === false) {
-                            skewY = '';
-                        } else {
-                            skewY = 'skewy(0deg)';
-                        }
-
-                    }
-
-                    // All data.
-                    var translateData = $.trim(scale + " " + rotate + " " + translateX + " " + translateY + " " + skewX + " " + skewY);
-
-                    if (translateData == '' || translateData == ' ') {
-                        translateData = 'disable';
-                    }
-
-                    yp_insert_rule(selector, 'transform', translateData, '', size);
-                    body.removeClass("yp-inserting");
+                    
                     return false;
 
                 }
@@ -6542,44 +7039,10 @@
                 // Box Shadow
                 if (id == 'box-shadow-inset' || id == 'box-shadow-color' || id == 'box-shadow-vertical' || id == 'box-shadow-blur-radius' || id == 'box-shadow-spread' || id == 'box-shadow-horizontal') {
 
-                    // Get inset option
-                    if ($("#box-shadow-inset-inset").parent().hasClass("active")) {
-                        var inset = 'inset';
-                    } else {
-                        var inset = '';
-                    }
+                    var shadowData = box_shadow_generator();
 
-                    // Getting all other options.
-                    var color = $.trim($("#yp-box-shadow-color").val());
-                    var vertical = $.trim($("#box-shadow-vertical-value").val());
-                    var radius = $.trim($("#box-shadow-blur-radius-value").val());
-                    var spread = $.trim($("#box-shadow-spread-value").val());
-                    var horizontal = $.trim($("#box-shadow-horizontal-value").val());
-
-                    if ($("#box-shadow-color-group .yp-disable-btn").hasClass("active") || $("#box-shadow-color-group .yp-none-btn").hasClass("active")) {
-                        color = 'transparent';
-                    }
-
-                    if ($("#box-shadow-vertical-group .yp-disable-btn").hasClass("active")) {
-                        vertical = '0';
-                    }
-
-                    if ($("#box-shadow-blur-radius-group .yp-disable-btn").hasClass("active")) {
-                        radius = '0';
-                    }
-
-                    if ($("#box-shadow-spread-group .yp-disable-btn").hasClass("active")) {
-                        spread = '0';
-                    }
-
-                    if ($("#box-shadow-horizontal-group .yp-disable-btn").hasClass("active")) {
-                        horizontal = '0';
-                    }
-
-                    var shadowData = $.trim(horizontal + "px " + vertical + "px " + radius + "px " + spread + "px " + color + " " + inset);
-
-                    yp_insert_rule(selector, 'box-shadow', shadowData, '', size);
-                    body.removeClass("yp-inserting");
+                    insert_rule(selector, 'box-shadow', shadowData, '', size);
+                    
                     return false;
 
                 }
@@ -6591,30 +7054,29 @@
                     iframe.find("[data-style][data-size-mode='"+size+"']").each(function(){
 
                         // onscreen
-                        if ($(this).data("style") == yp_id(selector + ".yp_onscreen")) {
+                        if ($(this).data("style") == get_id(selector + ".yp_onscreen")) {
                             $(this).remove();
                         }
 
                         // hover
-                        if ($(this).data("style") == yp_id(selector + ".yp_hover")) {
+                        if ($(this).data("style") == get_id(selector + ".yp_hover")) {
                             $(this).remove();
                         }
 
                         // click
-                        if ($(this).data("style") == yp_id(selector + ".yp_click")) {
+                        if ($(this).data("style") == get_id(selector + ".yp_click")) {
                             $(this).remove();
                         }
 
                         // click
-                        if ($(this).data("style") == yp_id(selector + ".yp_focus")) {
+                        if ($(this).data("style") == get_id(selector + ".yp_focus")) {
                             $(this).remove();
                         }
 
                     });
 
-                    yp_insert_rule(selector, 'animation-name', $("#yp-animation-name").val(), prefix, size);
-
-                    body.removeClass("yp-inserting");
+                    insert_rule(selector, 'animation-name', $("#yp-animation-name").val(), prefix, size);
+                    
                     return false;
 
                 }
@@ -6625,23 +7087,26 @@
                     if (value != 'disable' && value != 'none'){
 
                         // be sure has a selected element.
-                        if(body.hasClass("yp-content-selected")){
+                        if(is_content_selected() && $("#animation-duration-group").hasClass("hidden-option") === false && $("#animation-delay-group").hasClass("hidden-option") === false){
 
                             // Get duration from CSS
-                            var duration = iframe.find(".yp-selected").css("animation-duration").replace(/[^0-9.,]/g, '');
+                            duration = get_selected_element().css("animation-duration").replace(/[^0-9.,]/g, '');
 
                             // Get delay from CSS
-                            var delay = iframe.find(".yp-selected").css("animation-delay").replace(/[^0-9.,]/g, '');
+                            delay = get_selected_element().css("animation-delay").replace(/[^0-9.,]/g, '');
+
+                            // Get fill mode from CSS
+                            var fillMode = get_selected_element().css("animation-fill-mode");
 
                             // If selected element;
-                            if (selector.replace(".yp_click", "").replace(".yp_hover", "").replace(".yp_focus", "").replace(".yp_onscreen", "") == yp_get_current_selector()){
+                            if (get_foundable_query(selector,false,true,true) == get_current_selector().trim()){
 
                                 // Duration
-                                if(duration == 0){
+                                if(duration == "0"){
                                     duration = 1;
                                 }
 
-                                yp_insert_rule(selector, 'animation-duration', duration + 's', prefix, size);
+                                insert_rule(selector, 'animation-duration', duration + 's', prefix, size);
 
 
                                 // Delay
@@ -6649,7 +7114,15 @@
                                     delay = 0;
                                 }
 
-                                yp_insert_rule(selector, 'animation-delay', delay + 's', prefix, size);
+                                insert_rule(selector, 'animation-delay', delay + 's', prefix, size);
+
+
+                                // Delay
+                                if (fillMode == null || fillMode == 'none') {
+                                    fillMode = 'both';
+                                }
+
+                                insert_rule(get_current_selector(), 'animation-fill-mode', fillMode, prefix, size);
 
                             }
 
@@ -6660,35 +7133,35 @@
                     if (value == 'bounce') {
 
                         if (value != 'disable' && value != 'none') {
-                            yp_insert_rule(selector, 'transform-origin', 'center bottom', prefix, size);
+                            insert_rule(selector, 'transform-origin', 'center bottom', prefix, size);
                         } else {
-                            yp_insert_rule(selector, 'transform-origin', value, prefix, size);
+                            insert_rule(selector, 'transform-origin', value, prefix, size);
                         }
 
                     } else if (value == 'swing') {
 
                         if (value != 'disable' && value != 'none') {
-                            yp_insert_rule(selector, 'transform-origin', 'top center', prefix, size);
+                            insert_rule(selector, 'transform-origin', 'top center', prefix, size);
                         } else {
-                            yp_insert_rule(selector, 'transform-origin', value, prefix, size);
+                            insert_rule(selector, 'transform-origin', value, prefix, size);
                         }
 
                     } else if (value == 'jello') {
 
                         if (value != 'disable' && value != 'none') {
-                            yp_insert_rule(selector, 'transform-origin', 'center', prefix, size);
+                            insert_rule(selector, 'transform-origin', 'center', prefix, size);
                         } else {
-                            yp_insert_rule(selector, 'transform-origin', value, prefix, size);
+                            insert_rule(selector, 'transform-origin', value, prefix, size);
                         }
 
                     } else {
-                        yp_insert_rule(selector, 'transform-origin', 'disable', prefix, size);
+                        insert_rule(selector, 'transform-origin', 'disable', prefix, size);
                     }
 
                     if (value == 'flipInX') {
-                        yp_insert_rule(selector, 'backface-visibility', 'visible', prefix, size);
+                        insert_rule(selector, 'backface-visibility', 'visible', prefix, size);
                     } else {
-                        yp_insert_rule(selector, 'backface-visibility', 'disable', prefix, size);
+                        insert_rule(selector, 'backface-visibility', 'disable', prefix, size);
                     }
 
                 }
@@ -6696,7 +7169,7 @@
 
                 // Checking.
                 if (value == 'disable' || value == '' || value == 'undefined' || value === null) {
-                    body.removeClass("yp-inserting");
+                    
                     return false;
                 }
 
@@ -6704,52 +7177,42 @@
                 var current = value + prefix;
 
                 // Clean.
-                if (body.hasClass("yp-css-converter") === false) {
-                    current = current.replace(/ !important/g, "").replace(/!important/g, "");
-                }
+                current = current.replace(/\s+?!important/g,'').replace(/\;$/g,'');
 
                 // Append default value.
-                if (yp_id(selector) != '') {
+                if (get_id(selector) != '') {
 
                     var dpt = ':';
 
-                    if (body.hasClass("yp-anim-creator") === true && id != 'position') {
+                    if (is_animate_creator() === true && id != 'position') {
 
-                        iframe.find("." + yp_id(body.attr("data-anim-scene") + css)).remove();
+                        iframe.find("." + get_id(body.attr("data-anim-scene") + css)).remove();
 
-                        iframe.find(".yp-anim-scenes ." + body.attr("data-anim-scene") + "").append('<style data-rule="' + css + '" class="style-' + body.attr("data-anim-scene") + ' scenes-' + yp_id(css) + '-style">' + selector + '{' + css + dpt + current + '}</style>');
+                        iframe.find(".yp-anim-scenes ." + body.attr("data-anim-scene") + "").append('<style data-rule="' + css + '" class="style-' + body.attr("data-anim-scene") + ' scenes-' + get_id(css) + '-style">' + selector + '{' + css + dpt + current + '}</style>');
 
                     } else {
 
                         // Responsive setting
-                        var mediaBefore = yp_create_media_query_before();
-                        var mediaAfter = yp_create_media_query_after();
+                        var mediaBefore = create_media_query_before();
+                        var mediaAfter = create_media_query_after();
 
-                        if(isDefined(size) && body.hasClass("yp-animate-manager-active") === true && body.hasClass("yp-responsive-device-mode") === true){
+                        if(isDefined(size) && body.hasClass(("yp-animate-manager-active")) && body.hasClass(("yp-responsive-device-mode"))){
                             mediaBefore = "@media " + size + "{";
                         }
 
-                        iframe.find(".yp-styles-area").append('<style data-rule="' + css + '" data-size-mode="' + size + '" data-style="' + yp_id(selector) + '" class="' + yp_id(selector) + '-' + id + '-style yp_current_styles">' + mediaBefore + '' + '' + selector + '{' + css + dpt + current + '}' + '' + mediaAfter + '</style>');
+                        the_editor_data().append('<style data-rule="' + css + '" data-size-mode="' + size + '" data-style="' + get_id(selector) + '" class="' + get_id(selector) + '-' + id + '-style yp_current_styles">' + mediaBefore + '' + '' + selector + '{' + css + dpt + current + '}' + '' + mediaAfter + '</style>');
 
-                        yp_resort_styles();
+                        resort_style_data_positions();
 
                     }
 
-                    if (!body.hasClass("yp-css-converter")) {
-                        yp_draw();
-                    }
+                    draw();
 
-                }
-
-                // If CSS converter, stop here.
-                if (body.hasClass("yp-css-converter")) {
-                    body.removeClass("yp-inserting");
-                    return false;
                 }
 
                 // No need to important for text-shadow.
                 if (id == 'text-shadow') {
-                    body.removeClass("yp-inserting");
+                    
                     return false;
                 }
 
@@ -6771,14 +7234,14 @@
                         if (isValue.indexOf("rgb") != -1 && id != 'box-shadow') {
 
                             // Convert to hex.
-                            isValue = yp_color_converter(isValue);
+                            isValue = get_color(isValue);
 
                         } else if (isValue.indexOf("rgb") != -1 && id == 'box-shadow') {
 
                             // for box shadow.
                             var justRgb = isValue.match(/rgb(.*?)\((.*?)\)/g).toString();
                             var valueNoColor = isValue.replace(/rgb(.*?)\((.*?)\)/g, "");
-                            isValue = valueNoColor + " " + yp_color_converter(justRgb);
+                            isValue = valueNoColor + " " + get_color(justRgb);
 
                         }
 
@@ -6805,11 +7268,11 @@
                     current = $.trim(current);
 
                     // If date mean same thing: stop.
-                    if (yp_id_basic(current) == 'length' && yp_id_basic(isValue) == 'autoauto') {
+                    if (get_basic_id(current) == 'length' && get_basic_id(isValue) == 'autoauto') {
                         needToImportant = false;
                     }
 
-                    if (yp_id_basic(current) == 'inherit' && yp_id_basic(isValue) == 'normal') {
+                    if (get_basic_id(current) == 'inherit' && get_basic_id(isValue) == 'normal') {
                         needToImportant = false;
                     }
 
@@ -6823,7 +7286,7 @@
                     }
 
                     // if value is same, stop.
-                    if (current == isValue && iframe.find(".yp-selected-others").length == 0) {
+                    if (current == isValue && iframe.find(".yp-selected-others").length === 0) {
                         needToImportant = false;
                     }
 
@@ -6884,7 +7347,7 @@
                     if (id == 'width' || id == 'min-width' || id == 'max-width' || id == 'height' || id == 'min-height' || id == 'max-height' || id == 'font-size' || id == 'line-height' || id == 'letter-spacing' || id == 'word-spacing' || id == 'margin-top' || id == 'margin-left' || id == 'margin-right' || id == 'margin-bottom' || id == 'padding-top' || id == 'padding-left' || id == 'padding-right' || id == 'padding-bottom' || id == 'border-left-width' || id == 'border-right-width' || id == 'border-top-width' || id == 'border-bottom-width' || id == 'border-top-left-radius' || id == 'border-top-right-radius' || id == 'border-bottom-left-radius' || id == 'border-bottom-right-radius') {
 
                         // If value is similar.
-                        if (yp_num(current.replace(/\.00$/g, "").replace(/\.0$/g, "")) !== '' && yp_num(current.replace(/\.00$/g, "").replace(/\.0$/g, "")) == yp_num(isValue.replace(/\.00$/g, "").replace(/\.0$/g, ""))){
+                        if (number_filter(current.replace(/\.00$/g, "").replace(/\.0$/g, "")) !== '' && number_filter(current.replace(/\.00$/g, "").replace(/\.0$/g, "")) == number_filter(isValue.replace(/\.00$/g, "").replace(/\.0$/g, ""))){
                             needToImportant = false;
                         }
 
@@ -6895,9 +7358,9 @@
                         // Browser always return in px format, custom check for %, em.
                         if (current.indexOf("%") != -1 && isValue.indexOf("px") != -1) {
 
-                            iframe.find(".yp-selected").addClass("yp-full-width");
+                            get_selected_element().addClass("yp-full-width");
                             var fullWidth = iframe.find(".yp-full-width").css("width");
-                            iframe.find(".yp-selected").removeClass("yp-full-width");
+                            get_selected_element().removeClass("yp-full-width");
 
                             if (parseInt(parseInt(fullWidth) * parseInt(current) / 100) == parseInt(isValue)) {
                                 needToImportant = false;
@@ -6919,6 +7382,10 @@
                         }
                     }
 
+                    if(id == 'animation-fill-mode' || id == 'transform-origin'){
+                        needToImportant = false;
+                    }
+
                     // not use important, If value is inherit.
                     if (current == "inherit" || current == "auto") {
                         needToImportant = false;
@@ -6935,113 +7402,20 @@
                 }
 
                 if(needToImportant === false){
-                    body.removeClass("yp-inserting");
+                    
                     return false;
                 }
 
                 // Use important.
-                yp_insert_important_rule(selector, id, value, prefix, size);
-
-                // Update
-                yp_draw();
-
-                body.removeClass("yp-inserting");
+                force_insert_rule(selector, id, value, prefix, size);
+                
 
             }
-
-            // border style disable toggerher.
-            $("#border-style-group .yp-disable-btn").on("click", function(e) {
-
-                if (e.originalEvent) {
-
-                    $("#border-top-style-group,#border-left-style-group,#border-right-style-group,#border-bottom-style-group").addClass("eye-enable");
-
-                    if ($(this).hasClass("active") === true) {
-
-                        $("#border-top-style-group .yp-disable-btn,#border-right-style-group .yp-disable-btn,#border-left-style-group .yp-disable-btn,#border-bottom-style-group .yp-disable-btn,#border-top-style-group .yp-disable-btn").addClass("active").trigger("click");
-
-                    } else {
-
-                        $("#border-top-style-group .yp-disable-btn,#border-right-style-group .yp-disable-btn,#border-left-style-group .yp-disable-btn,#border-bottom-style-group .yp-disable-btn,#border-top-style-group .yp-disable-btn").removeClass("active").trigger("click");
-
-                    }
-
-                }
-
-            });
-
-            // border width disable toggerher.
-            $("#border-width-group .yp-disable-btn").on("click", function(e) {
-
-                if (e.originalEvent) {
-
-                    $("#border-top-width-group,#border-left-width-group,#border-right-width-group,#border-bottom-width-group").addClass("eye-enable");
-
-                    if ($(this).hasClass("active") === true) {
-
-                        $("#border-top-width-group .yp-disable-btn,#border-right-width-group .yp-disable-btn,#border-left-width-group .yp-disable-btn,#border-bottom-width-group .yp-disable-btn,#border-top-width-group .yp-disable-btn").addClass("active").trigger("click");
-
-                    } else {
-
-                        $("#border-top-width-group .yp-disable-btn,#border-right-width-group .yp-disable-btn,#border-left-width-group .yp-disable-btn,#border-bottom-width-group .yp-disable-btn,#border-top-width-group .yp-disable-btn").removeClass("active").trigger("click");
-
-                    }
-
-                }
-
-            });
-
-            // border color disable toggerher.
-            $("#border-color-group .yp-disable-btn").on("click", function(e) {
-
-                if (e.originalEvent) {
-
-                    $("#border-top-color-group,#border-left-color-group,#border-right-color-group,#border-bottom-color-group").addClass("eye-enable");
-
-                    if ($(this).hasClass("active") === true) {
-
-                        $("#border-top-color-group .yp-disable-btn,#border-right-color-group .yp-disable-btn,#border-left-color-group .yp-disable-btn,#border-bottom-color-group .yp-disable-btn,#border-top-color-group .yp-disable-btn").addClass("active").trigger("click");
-
-                    } else {
-
-                        $("#border-top-color-group .yp-disable-btn,#border-right-color-group .yp-disable-btn,#border-left-color-group .yp-disable-btn,#border-bottom-color-group .yp-disable-btn,#border-top-color-group .yp-disable-btn").removeClass("active").trigger("click");
-
-                    }
-
-                }
-
-            });
-
-            // Border style none toggle
-            $("#border-style-group .yp-none-btn").on("click", function() {
-
-                if (!$(this).hasClass("active")) {
-                    $("#border-bottom-style-group .yp-none-btn,#border-right-style-group .yp-none-btn,#border-left-style-group .yp-none-btn,#border-top-style-group .yp-none-btn").removeClass("active");
-                } else {
-                    $("#border-bottom-style-group .yp-none-btn,#border-right-style-group .yp-none-btn,#border-left-style-group .yp-none-btn,#border-top-style-group .yp-none-btn").addClass("active");
-                }
-
-                $("#border-bottom-style-group .yp-none-btn,#border-right-style-group .yp-none-btn,#border-left-style-group .yp-none-btn,#border-top-style-group .yp-none-btn").trigger("click");
-
-            });
-
-            // Border color none toggle
-            $("#border-color-group .yp-none-btn").on("click", function() {
-
-                if (!$(this).hasClass("active")) {
-                    $("#border-bottom-color-group .yp-none-btn,#border-right-color-group .yp-none-btn,#border-left-color-group .yp-none-btn,#border-top-color-group .yp-none-btn").removeClass("active");
-                } else {
-                    $("#border-bottom-color-group .yp-none-btn,#border-right-color-group .yp-none-btn,#border-left-color-group .yp-none-btn,#border-top-color-group .yp-none-btn").addClass("active");
-                }
-
-                $("#border-bottom-color-group .yp-none-btn,#border-right-color-group .yp-none-btn,#border-left-color-group .yp-none-btn,#border-top-color-group .yp-none-btn").trigger("click");
-
-            });
 
             // Hide blue borders on click options section.
             $(document).on("click",".yp-this-content",function(e){
                 if (e.originalEvent) {
-                    yp_hide_selects_with_animation();
+                    hide_frame_ui(200);
                 }
             });
 
@@ -7049,7 +7423,7 @@
             /* ---------------------------------------------------- */
             /* Setup Slider Option                                  */
             /* ---------------------------------------------------- */
-            function yp_slider_option(id, decimals, pxv, pcv, emv) {
+            function slider_option(id, decimals, pxv, pcv, emv) {
 
                 var thisContent = $("#" + id + "-group").parent(".yp-this-content");
 
@@ -7063,22 +7437,22 @@
 
                 // Update PX.
                 if ($("#" + id + "-group .yp-after-prefix").val() == 'px') {
-                    var range = $("#" + id + "-group").data("px-range").split(",");
+                    range = $("#" + id + "-group").data("px-range").split(",");
                 }
 
                 // Update %.
                 if ($("#" + id + "-group .yp-after-prefix").val() == '%') {
-                    var range = $("#" + id + "-group").data("pc-range").split(",");
+                    range = $("#" + id + "-group").data("pc-range").split(",");
                 }
 
                 // Update EM.
                 if ($("#" + id + "-group .yp-after-prefix").val() == 'em') {
-                    var range = $("#" + id + "-group").data("em-range").split(",");
+                    range = $("#" + id + "-group").data("em-range").split(",");
                 }
 
                 // Update s.
                 if ($("#" + id + "-group .yp-after-prefix").val() == 's') {
-                    var range = $("#" + id + "-group").data("em-range").split(",");
+                    range = $("#" + id + "-group").data("em-range").split(",");
                 }
 
                 // Setup slider.
@@ -7104,27 +7478,29 @@
                     var lockedIdArray = [];
 
                     if(lock){
+
                         thisContent.find(".yp-option-group").each(function(){
                             lockedIdArray.push($(this).attr("data-css"));
                         });
-                    }
 
-                    var val = $(this).val();
+                        var val = $(this).val();
 
-                    if(lock){
                         for(var y = 0;y < lockedIdArray.length; y++){
                             $('#yp-' + lockedIdArray[y]).val(val);
                             $('#' + lockedIdArray[y] + '-after').trigger("keyup");
-                            yp_slide_action($("#yp-" + lockedIdArray[y]), lockedIdArray[y], true);
+                            slide_action($("#yp-" + lockedIdArray[y]), lockedIdArray[y], true, false);
                         }
+
+                        option_change();
+
                     }else{
-                        yp_slide_action($(this), id, true);
+                        slide_action($(this), id, true, true);
                     }
 
                 }).on('slide', function() {
 
                     // Be sure its hidden.
-                    yp_hide_selects_with_animation();
+                    hide_frame_ui(200);
 
                     var lock = thisContent.find(".lock-btn.active").length;
                     var lockedIdArray = [];
@@ -7138,15 +7514,16 @@
                     // Get val
                     var val = $(this).val();
                     var prefix = $('#' + id+"-after").val();
+                    var y;
 
                     val = Number((parseFloat(val)).toFixed(2));
                     var left = $("#" + id + "-group").find(".wqNoUi-origin").css("left");
 
                     // Update the input.
-                    if(lock == 0){
+                    if(lock === 0){
                         $('#' + id + '-value').val(val);
                     }else{
-                        for(var y = 0;y < lockedIdArray.length; y++){
+                        for(y = 0;y < lockedIdArray.length; y++){
                             $('#' + lockedIdArray[y] + '-value').val(val);
                             $('#' + lockedIdArray[y] + '-after').val(prefix);
                             $('#' + lockedIdArray[y] + '-group').find(".wqNoUi-origin").css("left",left);
@@ -7154,36 +7531,27 @@
                     }
 
                     // some rules not support live css, so we check some rules.
-                    if (id != 'background-parallax-speed' && id != 'background-parallax-x' && id != 'blur-filter' && id != 'grayscale-filter' && id != 'brightness-filter' && id != 'contrast-filter' && id != 'hue-rotate-filter' && id != 'saturate-filter' && id != 'sepia-filter' && id.indexOf("box-shadow-") == -1) {
+                    if (id != 'background-parallax-speed' && id != 'background-parallax-x') {
 
-                        // if transfrom
-                        if (id.indexOf("-transform") != -1 && id != 'text-transform' && id != '-webkit-transform') {
+                        prefix = $(this).parent().find("#" + id + "-after").val();
 
-                            yp_slide_action($(this), id, true);
-
-                        } else { // if not
-
-                            var prefix = $(this).parent().find("#" + id + "-after").val();
-
-                            // Standard.
-                            if(lock == 0){
-                                yp_clean_live_css(id, false);
-                                yp_live_css(id, val + prefix, false);
-                            }else{
-                                for(var y = 0;y < lockedIdArray.length; y++){
-                                    yp_clean_live_css(lockedIdArray[y], false);
-                                    yp_live_css(lockedIdArray[y], val + prefix, false);
-                                }
+                        // Standard.
+                        if(lock === 0){
+                            delete_live_css(id, false);
+                            insert_live_css(id, val + prefix, false);
+                        }else{
+                            for(y = 0;y < lockedIdArray.length; y++){
+                                delete_live_css(lockedIdArray[y], false);
+                                insert_live_css(lockedIdArray[y], val + prefix, false);
                             }
-
-
                         }
 
+
                     } else { // for make it as live, inserting css to data.
-                        yp_slide_action($(this), id, true);
+                        slide_action($(this), id, true, true);
                     }
 
-                    if($(".fake-layer").length == 0){
+                    if($(".fake-layer").length === 0){
                         $("body").append("<div class='fake-layer'></div>");
                     }
 
@@ -7194,79 +7562,39 @@
             /* ---------------------------------------------------- */
             /* Slider Event                                         */
             /* ---------------------------------------------------- */
-            function yp_slide_action(element, id, $slider) {
+            function slide_action(element, id, $slider,changed) {
 
                 var css = element.parent().parent().data("css");
                 element.parent().parent().addClass("eye-enable");
 
+                var val;
+
                 if ($slider === true) {
 
-                    var val = element.val();
+                    val = element.val();
 
                     // If active, disable it.
                     element.parent().parent().find(".yp-btn-action.active").trigger("click");
 
                 } else {
 
-                    var val = element.parent().find("#" + css + "-value").val();
+                    val = element.parent().find("#" + css + "-value").val();
 
                 }
 
-                var selector = yp_get_current_selector();
                 var css_after = element.parent().find("#" + css + "-after").val();
 
-                // Border Width Fix
-                if (id == 'border-width') {
-
-                    // Set border width to all top, right..
-                    if (css_after != $("#border-top-width-after").val()) {
-                        $("#border-top-width-after").val(css_after).trigger("keyup");
-                    }
-                    if (css_after != $("#border-right-width-after").val()) {
-                        $("#border-right-width-after").val(css_after).trigger("keyup");
-                    }
-                    if (css_after != $("#border-bottom-width-after").val()) {
-                        $("#border-bottom-width-after").val(css_after).trigger("keyup");
-                    }
-                    if (css_after != $("#border-right-width-after").val()) {
-                        $("#border-right-width-after").val(css_after).trigger("keyup");
-                    }
-
-                    // Value
-                    $("#yp-border-top-width,#yp-border-bottom-width,#yp-border-left-width,#yp-border-right-width,#border-top-width-value,#border-bottom-width-value,#border-left-width-value,#border-right-width-value").val(val);
-
-                    // disable
-                    $("#border-top-width-group .yp-disable-btn.active,#border-right-width-group .yp-disable-btn.active,#border-bottom-width-group .yp-disable-btn.active,#border-left-width-group .yp-disable-btn.active").trigger("click");
-
-                    // set solid for default.
-                    if ($('input[name="border-style"]:checked').val() == 'none' || $('input[name="border-style"]:checked').val() === undefined || $('input[name="border-style"]:checked').val() == 'hidden') {
-                        $("#border-style-solid").trigger("click");
-                    }
-
-                    // update CSS
-                    yp_insert_rule(selector, 'border-top-width', val, css_after);
-                    yp_insert_rule(selector, 'border-bottom-width', val, css_after);
-                    yp_insert_rule(selector, 'border-left-width', val, css_after);
-                    yp_insert_rule(selector, 'border-right-width', val, css_after);
-
-                    // add eye icon
-                    $("#border-top-width-group,#border-left-width-group,#border-right-width-group,#border-bottom-width-group").addClass("eye-enable");
-
-                }
-
-                if (id != 'border-width') {
-
-                    // Set for demo
-                    yp_insert_rule(selector, id, val, css_after);
-
-                }
+                // Set for demo
+                insert_rule(null, id, val, css_after);
 
                 // Option Changed
-                yp_option_change();
+                if(changed){
+                    option_change();
+                }
 
             }
 
-            function yp_escape(s) {
+            function escape(s) {
                 return ('' + s) /* Forces the conversion to string. */
                     .replace(/\\/g, '\\\\') /* This MUST be the 1st replacement. */
                     .replace(/\t/g, '\\t') /* These 2 replacements protect whitespaces. */
@@ -7282,7 +7610,7 @@
             /* ---------------------------------------------------- */
             /* Getting radio val.                                   */
             /* ---------------------------------------------------- */
-            function yp_radio_value(the_id, $n, data) {
+            function radio_value(the_id, $n, data) {
 
                 var id_prt = the_id.parent().parent();
 
@@ -7307,11 +7635,11 @@
                         data = 'none';
                     }
 
-                    if ($("input[name=" + $n + "][value=" + yp_escape(data) + "]").length > 0) {
+                    if ($("input[name=" + $n + "][value=" + escape(data) + "]").length > 0) {
 
                         the_id.find(".active").removeClass("active");
 
-                        $("input[name=" + $n + "][value=" + yp_escape(data) + "]").prop('checked', true).parent().addClass("active");
+                        $("input[name=" + $n + "][value=" + escape(data) + "]").prop('checked', true).parent().addClass("active");
 
                     } else {
 
@@ -7335,17 +7663,15 @@
             /* ---------------------------------------------------- */
             /* Radio Event                                          */
             /* ---------------------------------------------------- */
-            function yp_radio_option(id) {
+            function radio_option(id) {
 
                 $("#yp-" + id + " label").on('click', function() {
 
-                    if($(".position-option.active").length == 0){
+                    if($(".position-option.active").length === 0){
                         if($(this).parent().hasClass("active")){
                             return false;
                         }
                     }
-
-                    var selector = yp_get_current_selector();
 
                     // Disable none.
                     $(this).parent().parent().parent().parent().find(".yp-btn-action.active").removeClass("active");
@@ -7359,34 +7685,11 @@
 
                     var val = $("input[name=" + id + "]:checked").val();
 
-                    // Border style fix.
-                    if (id == 'border-style') {
-
-                        yp_radio_value($("#yp-border-top-style"), 'border-top-style', val);
-                        yp_radio_value($("#yp-border-bottom-style"), 'border-bottom-style', val);
-                        yp_radio_value($("#yp-border-left-style"), 'border-left-style', val);
-                        yp_radio_value($("#yp-border-right-style"), 'border-right-style', val);
-
-                        // Update
-                        yp_insert_rule(selector, 'border-top-style', val, '');
-                        yp_insert_rule(selector, 'border-bottom-style', val, '');
-                        yp_insert_rule(selector, 'border-left-style', val, '');
-                        yp_insert_rule(selector, 'border-right-style', val, '');
-
-                        // add eye icon
-                        $("#border-top-style-group,#border-left-style-group,#border-right-style-group,#border-bottom-style-group").addClass("eye-enable");
-
-                    }
-
-                    if (id != 'border-style') {
-
-                        // Set for demo
-                        yp_insert_rule(selector, id, val, '');
-
-                    }
+                    // Set for demo
+                    insert_rule(null, id, val, '');
 
                     // Option Changed
-                    yp_option_change();
+                    option_change();
 
                 });
 
@@ -7395,100 +7698,19 @@
             /* ---------------------------------------------------- */
             /* Check if is safe font family.                        */
             /* ---------------------------------------------------- */
-            function yp_safe_fonts(a) {
+            function is_safe_font(a) {
 
-                if (a == 'Arial') {
+                if(isUndefined(a)){
+                    return false;
+                }
+
+                if(a.toLowerCase().match(/\barial\b|\barial black\b|\barial narrow\b|\barial rounded mt bold\b|\bavant garde\b|\bcalibri\b|\bcandara\b|\bcentury gothic\b|\bfranklin gothic medium\b|\bgeneva\b|\bfutura\b|\bgill sans\b|\bhelvetica neue\b|\bimpact\b|\blucida grande\b|\boptima\b|\bsegoe ui\b|\btahoma\b|\btrebuchet ms\b|\bverdana\b|\bbig caslon\b|\bbodoni mt\b|\bbook antiqua\b|\bcalisto mt\b|\bcambria\b|\bdidot\b|\bgaramond\b|\bgeorgia\b|\bgoudy old style\b|\bhoefler text\b|\blucida bright\b|\bpalatino\b|\bperpetua\b|\brockwell\b|\brockwell extra bold\b|\bbaskerville\b|\btimes new roman\b|\bconsolas\b|\bcourier new\b|\blucida console\b|\bhelveticaneue\b/i)){
                     return true;
-                } else if (a == 'Arial Black') {
-                    return true;
-                } else if (a == 'Arial Narrow') {
-                    return true;
-                } else if (a == 'Arial Rounded MT Bold') {
-                    return true;
-                } else if (a == 'Avant Garde') {
-                    return true;
-                } else if (a == 'Calibri') {
-                    return true;
-                } else if (a == 'Candara') {
-                    return true;
-                } else if (a == 'Century Gothic') {
-                    return true;
-                } else if (a == 'Franklin Gothic Medium') {
-                    return true;
-                } else if (a == 'Futura') {
-                    return true;
-                } else if (a == 'Geneva') {
-                    return true;
-                } else if (a == 'Gill Sans') {
-                    return true;
-                } else if (a == 'Helvetica Neue') {
-                    return true;
-                } else if (a == 'Impact') {
-                    return true;
-                } else if (a == 'Lucida Grande') {
-                    return true;
-                } else if (a == 'Optima') {
-                    return true;
-                } else if (a == 'Segoe UI') {
-                    return true;
-                } else if (a == 'Tahoma') {
-                    return true;
-                } else if (a == 'Trebuchet MS') {
-                    return true;
-                } else if (a == 'Verdana') {
-                    return true;
-                } else if (a == 'Big Caslon') {
-                    return true;
-                } else if (a == 'Bodoni MT') {
-                    return true;
-                } else if (a == 'Book Antiqua') {
-                    return true;
-                } else if (a == 'Calisto MT') {
-                    return true;
-                } else if (a == 'Cambria') {
-                    return true;
-                } else if (a == 'Didot') {
-                    return true;
-                } else if (a == 'Garamond') {
-                    return true;
-                } else if (a == 'Georgia') {
-                    return true;
-                } else if (a == 'Goudy Old Style') {
-                    return true;
-                } else if (a == 'Hoefler Text') {
-                    return true;
-                } else if (a == 'Lucida Bright') {
-                    return true;
-                } else if (a == 'Palatino') {
-                    return true;
-                } else if (a == 'Perpetua') {
-                    return true;
-                } else if (a == 'Rockwell') {
-                    return true;
-                } else if (a == 'Rockwell Extra Bold') {
-                    return true;
-                } else if (a == 'Baskerville') {
-                    return true;
-                } else if (a == 'Times New Roman') {
-                    return true;
-                } else if (a == 'Consolas') {
-                    return true;
-                } else if (a == 'Courier New') {
-                    return true;
-                } else if (a == 'Lucida Console') {
-                    return true;
-                } else if (a == 'HelveticaNeue') {
-                    return true;
-                } else {
+                }else{
                     return false;
                 }
 
             }
-
-
-            $(".yp-close-btn").on("click",function(e){
-                $("#animation-name-group").popover("destroy");
-            });
 
 
             /* ---------------------------------------------------- */
@@ -7509,8 +7731,9 @@
                     return false;
                 }
 
-                if (iframe.find(".yp-selected").css("display") == "inline") {
+                if (get_selected_element().css("display") == "inline") {
                     t.popover({
+                        animation: false,
                         title: l18_warning,
                         content: l18_animation_notice,
                         trigger: 'click',
@@ -7531,8 +7754,9 @@
                     return false;
                 }
 
-                if (iframe.find(".yp-selected").css("display") == "inline" || iframe.find(".yp-selected").css("display") == "table-cell") {
+                if (get_selected_element().css("display") == "inline" || get_selected_element().css("display") == "table-cell") {
                     $(this).popover({
+                        animation: false,
                         title: l18_notice,
                         content: l18_margin_notice,
                         trigger: 'hover',
@@ -7553,8 +7777,9 @@
                     return false;
                 }
 
-                if (iframe.find(".yp-selected").css("display") == "inline") {
+                if (get_selected_element().css("display") == "inline") {
                     $(this).popover({
+                        animation: false,
                         title: l18_notice,
                         content: l18_padding_notice,
                         trigger: 'hover',
@@ -7568,27 +7793,6 @@
 
             });
 
-            // Border with must minimum 1px
-            $("#border-width-group").on("mouseenter click", function(e) {
-
-                if (!e.originalEvent) {
-                    return false;
-                }
-
-                if (parseInt($("#border-width-value").val()) <= 0) {
-                    $(this).popover({
-                        title: l18_notice,
-                        content: l18_border_width_notice,
-                        trigger: 'hover',
-                        placement: "left",
-                        container: ".yp-select-bar",
-                        html: true
-                    }).popover("show");
-                } else {
-                    $(this).popover("destroy");
-                }
-
-            });
 
             // There is background image, maybe background color not work
             $("#background-color-group").on("mouseenter click", function(e) {
@@ -7597,8 +7801,9 @@
                     return false;
                 }
 
-                if ($("#yp-background-image").val() != '') {
+                if ($("#yp-background-image").val() != '' && $("#background-image-group .yp-none-btn.active").length === 0) {
                     $(this).popover({
+                        animation: false,
                         title: l18_notice,
                         content: l18_bg_img_notice,
                         trigger: 'hover',
@@ -7619,8 +7824,9 @@
                     return false;
                 }
 
-                if ($("#yp-background-image").val() == '') {
+                if ($("#yp-background-image").val() == '' || $("#background-image-group .yp-none-btn.active").length === 1) {
                     $(this).popover({
+                        animation: false,
                         title: l18_notice,
                         content: l18_bg_img_notice_two,
                         trigger: 'hover',
@@ -7641,8 +7847,9 @@
                     return false;
                 }
 
-                if ($("#yp-box-shadow-color").val() == '') {
+                if ($("#yp-box-shadow-color").val() == '' || $("#box-shadow-color-group .yp-none-btn.active").length === 1) {
                     $(this).popover({
+                        animation: false,
                         title: l18_notice,
                         content: l18_shadow_notice,
                         trigger: 'hover',
@@ -7656,32 +7863,11 @@
 
             });
 
-            // Need border style set.
-            $("#border-style-group").on("mouseenter click", function(e) {
 
-                if (!e.originalEvent) {
-                    return false;
-                }
-
-                if ($("#yp-border-style input:checked").val() == 'hidden' || $("#yp-border-style input:checked").val() == 'none' || $("#yp-border-style input:checked").val() == undefined) {
-                    $(this).popover({
-                        title: l18_notice,
-                        content: l18_border_style_notice,
-                        trigger: 'hover',
-                        placement: "left",
-                        container: ".yp-select-bar",
-                        html: true
-                    }).popover("show");
-                } else {
-                    $(this).popover("destroy");
-                }
-
-            });
 
             /* ---------------------------------------------------- */
             /* Select li hover                                      */
             /* ---------------------------------------------------- */
-
             $(".input-autocomplete").keydown(function(e) {
 
                 var code = e.keyCode || e.which;
@@ -7717,6 +7903,10 @@
 
             $(".input-autocomplete").on("blur keyup", function(e) {
 
+                if (window.openVal == $(this).val()) {
+                    return false;
+                }
+
                 var id = $(this).parent().parent().data("css");
 
                 $(".active-autocomplete-item").removeClass("active-autocomplete-item");
@@ -7726,9 +7916,7 @@
                     $("body").removeClass("autocomplete-active");
                 },300);
 
-                yp_clean_live_css(id, "#yp-" + id + "-test-style");
-
-                var selector = yp_get_current_selector();
+                delete_live_css(id, "#yp-" + id + "-test-style");
 
                 // Disable
                 $(this).parent().parent().find(".yp-btn-action.active").trigger("click");
@@ -7754,9 +7942,9 @@
                 }
 
                 // Set for data
-                yp_insert_rule(selector, id, val, '');
+                insert_rule(null, id, val, '');
 
-                yp_option_change();
+                option_change();
 
             });
 
@@ -7781,20 +7969,20 @@
                     // Font weight
                     if (id == 'font-weight') {
 
-                        yp_clean_live_css("font-weight", "#yp-font-weight-test-style");
-                        yp_live_css("font-weight", yp_num(element.text()).replace("-", ""), "#yp-font-weight-test-style");
+                        delete_live_css("font-weight", "#yp-font-weight-test-style");
+                        insert_live_css("font-weight", number_filter(element.text()).replace("-", ""), "#yp-font-weight-test-style");
 
                     }
 
                     // Font family
                     if (id == 'font-family') {
 
-                        yp_load_near_fonts(element.parent());
+                        load_near_fonts(element.parent());
 
-                        yp_clean_live_css("font-family", "#yp-font-test-style");
+                        delete_live_css("font-family", "#yp-font-test-style");
 
                         // Append test font family.
-                        yp_live_css('font-family', "'" + element.text() + "'", "#yp-font-test-style");
+                        insert_live_css('font-family', "'" + element.text() + "'", "#yp-font-test-style");
 
                         element.css("font-family", element.text());
 
@@ -7805,7 +7993,7 @@
                 if (id == 'font-weight') {
 
                     $(".autocomplete-div li").each(function() {
-                        element.css("font-weight", yp_num(element.text()).replace(/-/g, ''));
+                        element.css("font-weight", number_filter(element.text()).replace(/-/g, ''));
                     });
 
                     $(".autocomplete-div li").css("font-family", $("#yp-font-family").val());
@@ -7814,10 +8002,42 @@
             });
 
 
+            function get_multiple_delay(duration,delay){
+
+                if(isUndefined(duration) || isUndefined(delay)){
+                    return false;
+                }
+
+                var resultDelay = 0;
+                var durationArray = duration.toString().split(",");
+                var delayArray = delay.toString().split(",");
+
+                if(durationArray.length != delayArray.length){
+                    return false;
+                }
+
+                if(durationArray.length <= 1){
+                    return false;
+                }
+
+                var currents = 0;
+                for(var i = 0; i < durationArray.length; i++){
+                    if(isDefined(delayArray[i+1])){
+                        currents = currents + parseFloat(duration_ms(durationArray[i]));
+                        resultDelay = (parseFloat(duration_ms(delayArray[i+1])) - currents) + resultDelay;
+                        currents = currents + resultDelay;
+                    }
+                }
+
+                return resultDelay;
+
+            }
+
+
             // If mouseout, stop clear time out.
             $(document).on("mouseout", ".autocomplete-div", function() {
 
-                yp_clean_live_css("font-family", "#yp-font-test-style");
+                delete_live_css("font-family", "#yp-font-test-style");
 
             });
 
@@ -7830,8 +8050,13 @@
 
                 body.addClass("yp-mouseleave");
 
-                if($("body").hasClass("yp-content-selected") === false){
-                    yp_clean();
+                // remove multiple selection support.
+                body.removeClass("yp-control-key-down");
+                iframe.find(".yp-multiple-selected").removeClass("yp-multiple-selected");
+                iframe.find(".yp-selected-others-multiable-box").remove();
+
+                if(is_content_selected() === false){
+                    clean();
                 }
 
             });
@@ -7840,6 +8065,11 @@
             $(document).on("mouseenter", $(document), function() {
 
                 body.removeClass("yp-mouseleave");
+
+                // remove multiple selection support.
+                body.removeClass("yp-control-key-down");
+                iframe.find(".yp-multiple-selected").removeClass("yp-multiple-selected");
+                iframe.find(".yp-selected-others-multiable-box").remove();
 
             });
 
@@ -7853,6 +8083,11 @@
 
                 body.addClass("yp-iframe-mouseleave");
 
+                // remove multiple selection support.
+                body.removeClass("yp-control-key-down");
+                iframe.find(".yp-multiple-selected").removeClass("yp-multiple-selected");
+                iframe.find(".yp-selected-others-multiable-box").remove();
+
             });
 
             // If mouseenter.
@@ -7863,11 +8098,11 @@
             });
 
 
-            function yp_load_near_fonts(t){
+            function load_near_fonts(t){
 
                 var element = t.find(".ui-state-focus");
 
-                if(element.length == 0){
+                if(element.length === 0){
                     element = t.find(".active-autocomplete-item");
                 }
 
@@ -7888,9 +8123,9 @@
 
                     var $activeFont = iframe.find(".yp-font-test-style").data("family");
 
-                    var $fid = yp_id_basic($.trim(element.text().replace(/ /g, '+')));
+                    var $fid = get_basic_id($.trim(element.text().replace(/ /g, '+')));
 
-                    if (yp_safe_fonts(element.text()) === false && iframe.find(".yp-font-test-" + $fid).length == 0 && $activeFont != element.text()) {
+                    if (is_safe_font(element.text()) === false && iframe.find(".yp-font-test-" + $fid).length === 0 && $activeFont != element.text()) {
 
                         iframeBody.append("<link rel='stylesheet' class='yp-font-test-" + $fid + "'  href='https://fonts.googleapis.com/css?family=" + $.trim(element.text().replace(/ /g, '+')) + ":300italic,300,400,400italic,500,500italic,600,600italic,700,700italic' type='text/css' media='all' />");
 
@@ -7908,7 +8143,7 @@
             // Loading fonts on font family hover.
             $("#yp-autocomplete-place-font-family > ul").bind('scroll', function() {
 
-                yp_load_near_fonts($(this));
+                load_near_fonts($(this));
 
             }); 
 
@@ -7922,24 +8157,25 @@
             });
 
             /* Creating live CSS for color, slider and font-family and weight. */
-            function yp_live_css(id, val, custom) {
+            function insert_live_css(id, val, custom) {
 
                 // Responsive helper
-                var mediaBefore = yp_create_media_query_before();
-                var mediaAfter = yp_create_media_query_after();
+                var mediaBefore = create_media_query_before();
+                var mediaAfter = create_media_query_after();
 
                 // Style id
+                var styleId;
                 if (custom !== false) {
-                    var styleId = custom;
+                    styleId = custom;
                 } else {
-                    var styleId = "#" + id + "-live-css";
+                    styleId = "#" + id + "-live-css";
                 }
 
                 //Element
                 var element = iframe.find(styleId);
 
                 // Check
-                if (element.length == 0) {
+                if (element.length === 0) {
 
                     var idAttr = styleId.replace('#', '').replace('.', '');
 
@@ -7947,7 +8183,7 @@
 
                     // For font family.
                     if (id == 'font-family') {
-                        var customAttr = "data-family='" + val + "'";
+                        customAttr = "data-family='" + val + "'";
                     }
 
                     // not use prefix (px,em,% etc)
@@ -7955,21 +8191,350 @@
                         val = parseFloat(val);
                     }
 
+
+                    // Filter Default options.
+                    if (id == 'blur-filter' || id == 'grayscale-filter' || id == 'brightness-filter' || id == 'contrast-filter' || id == 'hue-rotate-filter' || id == 'saturate-filter' || id == 'sepia-filter') {
+
+                        id = 'filter';
+                        idAttr = 'filter';
+
+                        val = filter_generator(false);
+
+                    }
+                    // Filter options end
+
+                    // Transform Settings
+                    if (id.indexOf("-transform") != -1 && id != 'text-transform' && id != '-webkit-transform') {
+
+                        id = 'transform';
+                        idAttr = 'transform';
+
+                        val = transform_generator(false);
+                        
+
+                    }
+                    // Transform options end
+
+
+                    // Box Shadow
+                    if (id == 'box-shadow-inset' || id == 'box-shadow-color' || id == 'box-shadow-vertical' || id == 'box-shadow-blur-radius' || id == 'box-shadow-spread' || id == 'box-shadow-horizontal') {
+
+                        id = 'box-shadow';
+                        idAttr = 'box-shadow';
+
+                        val = box_shadow_generator();
+                        
+
+                    }
+                    // Box shadow options end
+
+
                     // Append
-                    iframeBody.append("<style class='" + idAttr + " yp-live-css' id='" + idAttr + "' " + customAttr + ">" + mediaBefore + ".yp-selected,.yp-selected-others," + yp_get_current_selector() + "{" + id + ":" + val + " !important;}" + mediaAfter + "</style>");
+                    if(id == 'filter' || id == 'transform'){ // Webkit support
+
+                        iframeBody.append("<style class='" + idAttr + " yp-live-css' id='" + idAttr + "' " + customAttr + ">" + mediaBefore + ".yp-selected,.yp-selected-others," + get_current_selector() + "{" + id + ":" + val + " !important;-webkit-" + id + ":" + val + " !important;}" + mediaAfter + "</style>");
+
+                    }else{ // default
+
+                        iframeBody.append("<style class='" + idAttr + " yp-live-css' id='" + idAttr + "' " + customAttr + ">" + mediaBefore + ".yp-selected,.yp-selected-others," + get_current_selector() + "{" + id + ":" + val + " !important;}" + mediaAfter + "</style>");
+
+                    }
 
                 }
 
             }
 
+
+            function transform_generator(type){
+
+                // Getting all other options.
+                var scale = "scale(" + $.trim($("#scale-transform-value").val()) + ")";
+                var rotate = "rotate(" + $.trim($("#rotate-transform-value").val()) + "deg)";
+                var translateX = "translatex(" + $.trim($("#translate-x-transform-value").val()) + "px)";
+                var translateY = "translatey(" + $.trim($("#translate-y-transform-value").val()) + "px)";
+                var skewX = "skewx(" + $.trim($("#skew-x-transform-value").val()) + "deg)";
+                var skewY = "skewy(" + $.trim($("#skew-y-transform-value").val()) + "deg)";
+
+                // Check if disable or not
+                if ($("#scale-transform-group .yp-disable-btn").hasClass("active")) {
+                    scale = '';
+                }
+
+                if ($("#rotate-transform-group .yp-disable-btn").hasClass("active")) {
+                    rotate = '';
+                }
+
+                if ($("#translate-x-transform-group .yp-disable-btn").hasClass("active")) {
+                    translateX = '';
+                }
+
+                if ($("#translate-y-transform-group .yp-disable-btn").hasClass("active")) {
+                    translateY = '';
+                }
+
+                if ($("#skew-x-transform-group .yp-disable-btn").hasClass("active")) {
+                    skewX = '';
+                }
+
+                if ($("#skew-y-transform-group .yp-disable-btn").hasClass("active")) {
+                    skewY = '';
+                }
+
+                // Dont insert if no data.
+                if (scale == 'scale()' || ($("#scale-transform-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        scale = '';
+                    } else {
+                        scale = 'scale(1)';
+                    }
+
+                }
+
+                if (rotate == 'rotate(deg)' || ($("#rotate-transform-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        rotate = '';
+                    } else {
+                        rotate = 'rotate(0deg)';
+                    }
+
+                }
+
+                if (translateX == 'translatex(px)' || ($("#translate-x-transform-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        translateX = '';
+                    } else {
+                        translateX = 'translatex(0px)';
+                    }
+
+                }
+
+                if (translateY == 'translatey(px)' || ($("#translate-y-transform-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        translateY = '';
+                    } else {
+                        translateY = 'translatey(0px)';
+                    }
+
+                }
+
+                if (skewX == 'skewx(deg)' || ($("#skew-x-transform-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        skewX = '';
+                    } else {
+                        skewX = 'skewx(0deg)';
+                    }
+
+                }
+
+                if (skewY == 'skewy(deg)' || ($("#skew-y-transform-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        skewY = '';
+                    } else {
+                        skewY = 'skewy(0deg)';
+                    }
+
+                }
+
+                // All data.
+                var translateData = $.trim(scale + " " + rotate + " " + translateX + " " + translateY + " " + skewX + " " + skewY);
+
+                if (translateData === '' || translateData == ' ') {
+                    translateData = 'disable';
+                    body.removeClass("yp-has-transform");
+                }
+
+                return translateData;
+
+            }
+
+
+            function filter_generator(type){
+
+                // Getting all other options.
+                var blur = "blur(" + $.trim($("#blur-filter-value").val()) + "px)";
+                var grayscale = "grayscale(" + $.trim($("#grayscale-filter-value").val()) + ")";
+                var brightness = "brightness(" + $.trim($("#brightness-filter-value").val()) + ")";
+                var contrast = "contrast(" + $.trim($("#contrast-filter-value").val()) + ")";
+                var hueRotate = "hue-rotate(" + $.trim($("#hue-rotate-filter-value").val()) + "deg)";
+                var saturate = "saturate(" + $.trim($("#saturate-filter-value").val()) + ")";
+                var sepia = "sepia(" + $.trim($("#sepia-filter-value").val()) + ")";
+
+                // Check if disable or not
+                if ($("#blur-filter-group .yp-disable-btn").hasClass("active")) {
+                    blur = '';
+                }
+
+                if ($("#grayscale-filter-group .yp-disable-btn").hasClass("active")) {
+                    grayscale = '';
+                }
+
+                if ($("#brightness-filter-group .yp-disable-btn").hasClass("active")) {
+                    brightness = '';
+                }
+
+                if ($("#contrast-filter-group .yp-disable-btn").hasClass("active")) {
+                    contrast = '';
+                }
+
+                if ($("#hue-rotate-filter-group .yp-disable-btn").hasClass("active")) {
+                    hueRotate = '';
+                }
+
+                if ($("#saturate-filter-group .yp-disable-btn").hasClass("active")) {
+                    saturate = '';
+                }
+
+                if ($("#sepia-filter-group .yp-disable-btn").hasClass("active")) {
+                    sepia = '';
+                }
+
+                // Dont insert if no data.
+                if (blur == 'blur(px)' || ($("#blur-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        blur = '';
+                    } else {
+                        blur = 'blur(0px)';
+                    }
+
+                }
+
+                if (grayscale == 'grayscale()' || ($("#grayscale-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        grayscale = '';
+                    } else {
+                        grayscale = 'grayscale(0)';
+                    }
+
+                }
+
+                if (brightness == 'brightness()' || ($("#brightness-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        brightness = '';
+                    } else {
+                        brightness = 'brightness(1)';
+                    }
+
+                }
+
+                if (contrast == 'contrast()' || ($("#contrast-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        contrast = '';
+                    } else {
+                        contrast = 'contrast(1)';
+                    }
+
+                }
+
+                if (hueRotate == 'hue-rotate(deg)' || ($("#hue-rotate-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        hueRotate = '';
+                    } else {
+                        hueRotate = 'hue-rotate(0deg)';
+                    }
+
+                }
+
+                if (saturate == 'saturate()' || ($("#saturate-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        saturate = '';
+                    } else {
+                        saturate = 'saturate(0)';
+                    }
+
+                }
+
+                if (sepia == 'sepia()' || ($("#sepia-filter-group").hasClass("eye-enable") === false && type === true)) {
+
+                    if (is_animate_creator() === false) {
+                        sepia = '';
+                    } else {
+                        sepia = 'sepia(0)';
+                    }
+
+                }
+
+                // All data.
+                var filterData = $.trim(blur + " " + brightness + " " + contrast + " " + grayscale + " " + hueRotate + " " + saturate + " " + sepia);
+
+                if (filterData === '' || filterData == ' ') {
+                    filterData = 'disable';
+                }
+
+                return filterData;
+
+            }
+
+            function box_shadow_generator(){
+
+                // Get inset option
+                var inset = '';
+                if ($("#box-shadow-inset-inset").parent().hasClass("active")) {
+                    inset = 'inset';
+                }
+
+                        // Getting all other options.
+                var color = $.trim($("#yp-box-shadow-color").val());
+                var vertical = $.trim($("#yp-box-shadow-vertical").val());
+                var radius = $.trim($("#yp-box-shadow-blur-radius").val());
+                var spread = $.trim($("#yp-box-shadow-spread").val());
+                var horizontal = $.trim($("#yp-box-shadow-horizontal").val());
+
+                if ($("#box-shadow-color-group .yp-disable-btn").hasClass("active") || $("#box-shadow-color-group .yp-none-btn").hasClass("active")) {
+                    color = 'transparent';
+                }
+
+                if ($("#box-shadow-vertical-group .yp-disable-btn").hasClass("active")) {
+                    vertical = '0';
+                }
+
+                if ($("#box-shadow-blur-radius-group .yp-disable-btn").hasClass("active")) {
+                    radius = '0';
+                }
+
+                if ($("#box-shadow-spread-group .yp-disable-btn").hasClass("active")) {
+                    spread = '0';
+                }
+
+                if ($("#box-shadow-horizontal-group .yp-disable-btn").hasClass("active")) {
+                    horizontal = '0';
+                }
+
+                var shadowData = $.trim(horizontal + "px " + vertical + "px " + radius + "px " + spread + "px " + color + " " + inset);
+
+                if(horizontal == 0 && vertical == 0 && radius == 0 && spread == 0){
+                    shadowData = 'disable';
+                }
+
+                if(color == 'transparent'){
+                    shadowData = 'disable';
+                }
+
+                return shadowData;
+
+            }
+
+
             /* Removing created live CSS */
-            function yp_clean_live_css(id, custom) {
+            function delete_live_css(id, custom) {
 
                 // Style id
+                var styleId;
                 if (custom !== false) {
-                    var styleId = custom;
+                    styleId = custom;
                 } else {
-                    var styleId = "#" + id + "-live-css";
+                    styleId = "#" + id + "-live-css";
                 }
 
                 var element = iframe.find(styleId);
@@ -7983,25 +8548,20 @@
             // Iris color picker creating live css on mousemove
             mainDocument.on("mousemove", function(){
 
+                var element,css,val;
+
                 if ($(".iris-dragging").length > 0) {
 
-                    var element = $(".iris-dragging").parents(".yp-option-group");
+                    element = $(".iris-dragging").parents(".yp-option-group");
 
-                    var css = element.data("css");
-                    var val = element.find(".wqcolorpicker").val();
+                    css = element.data("css");
+                    val = element.find(".wqcolorpicker").val();
 
-                    if (css.indexOf("box-shadow-color") == -1) {
+                    delete_live_css(css, false);
+                    insert_live_css(css, val, false);
 
-                        yp_clean_live_css(css, false);
-                        yp_live_css(css, val, false);
 
-                    } else {
-
-                        element.find(".wqcolorpicker").trigger("change");
-
-                    }
-
-                    if($(".fake-layer").length == 0){
+                    if($(".fake-layer").length === 0){
                         $("body").append("<div class='fake-layer'></div>");
                     }
 
@@ -8009,15 +8569,31 @@
 
                 if ($(".iris-slider").find(".ui-state-active").length > 0) {
 
-                    var element = $(".iris-slider").find(".ui-state-active").parents(".yp-option-group");
+                    element = $(".iris-slider").find(".ui-state-active").parents(".yp-option-group");
 
-                    var css = element.data("css");
-                    var val = element.find(".wqcolorpicker").val();
+                    css = element.data("css");
+                    val = element.find(".wqcolorpicker").val();
 
-                    yp_clean_live_css(css, false);
-                    yp_live_css(css, val, false);
+                    delete_live_css(css, false);
+                    insert_live_css(css, val, false);
 
-                    if($(".fake-layer").length == 0){
+                    if($(".fake-layer").length === 0){
+                        $("body").append("<div class='fake-layer'></div>");
+                    }
+
+                }
+
+                if ($(".cs-alpha-slider").find(".ui-state-active").length > 0) {
+
+                    element = $(".cs-alpha-slider").find(".ui-state-active").parents(".yp-option-group");
+
+                    css = element.data("css");
+                    val = element.find(".wqcolorpicker").val();
+
+                    delete_live_css(css, false);
+                    insert_live_css(css, val, false);
+
+                    if($(".fake-layer").length === 0){
                         $("body").append("<div class='fake-layer'></div>");
                     }
 
@@ -8036,9 +8612,11 @@
             // Iris color picker creating YP Data.
             mainDocument.on("mouseup", function() {
 
+                var element;
+
                 if ($(document).find(".iris-dragging").length > 0) {
 
-                    var element = $(".iris-dragging").parents(".yp-option-group");
+                    element = $(".iris-dragging").parents(".yp-option-group");
 
                     element.find(".wqcolorpicker").trigger("change");
 
@@ -8046,9 +8624,13 @@
 
                 } else if ($(document).find(".iris-slider .ui-state-active").length > 0) {
 
-                    var element = $(".ui-state-active").parents(".yp-option-group");
+                    element = $(".ui-state-active").parents(".yp-option-group");
 
                     element.find(".wqcolorpicker").trigger("change");
+
+                    $(".fake-layer").remove();
+
+                } else if ($(document).find(".cs-alpha-slider .ui-state-active").length > 0) {
 
                     $(".fake-layer").remove();
 
@@ -8059,7 +8641,7 @@
             /* ---------------------------------------------------- */
             /* Color Event                                          */
             /* ---------------------------------------------------- */
-            function yp_color_option(id) {
+            function color_option(id) {
 
                 // Color picker on blur
                 $("#yp-" + id).on("blur", function() {
@@ -8092,12 +8674,11 @@
                 // Color picker on change
                 $("#yp-" + id).on('change', function() {
 
-                    var selector = yp_get_current_selector();
                     var css = $(this).parent().parent().parent().data("css");
                     $(this).parent().parent().parent().addClass("eye-enable");
                     var val = $(this).val();
 
-                    if (val.indexOf("#") == -1) {
+                    if (val.indexOf("#") == -1 && val.indexOf("rgb") == -1) {
                         val = "#" + val;
                     }
 
@@ -8109,49 +8690,16 @@
                         $(this).parent().parent().find(".yp-none-btn:not(.active)").trigger("click");
                     }
 
-                    // Border Color Fix
-                    if (id == 'border-color') {
+                    // Set for demo
+                    delete_live_css(css, false);
 
-                        $("#yp-border-top-color").val(val);
-                        $("#yp-border-bottom-color").val(val);
-                        $("#yp-border-left-color").val(val);
-                        $("#yp-border-right-color").val(val);
-
-                        // set color
-                        $("#border-top-color-group .wqminicolors-swatch-color,#border-bottom-color-group .wqminicolors-swatch-color,#border-left-color-group .wqminicolors-swatch-color,#border-right-color-group .wqminicolors-swatch-color").css("background-color", val);
-
-                        // disable
-                        $("#border-top-color-group .yp-disable-btn.active,#border-right-color-group .yp-disable-btn.active,#border-bottom-color-group .yp-disable-btn.active,#border-left-color-group .yp-disable-btn.active").trigger("click");
-
-                        // none
-                        $("#border-top-color-group .yp-none-btn.active,#border-right-color-group .yp-none-btn.active,#border-bottom-color-group .yp-none-btn.active,#border-left-color-group .yp-none-btn.active").trigger("click");
-
-                        // Update
-                        yp_insert_rule(selector, 'border-top-color', val, '');
-                        yp_insert_rule(selector, 'border-bottom-color', val, '');
-                        yp_insert_rule(selector, 'border-left-color', val, '');
-                        yp_insert_rule(selector, 'border-right-color', val, '');
-
-                        // add eye icon
-                        $("#border-top-color-group,#border-left-color-group,#border-right-color-group,#border-bottom-color-group").addClass("eye-enable");
-
-                    }
-
-                    // If not border color.
-                    if (id != 'border-color') {
-
-                        // Set for demo
-                        yp_clean_live_css(css, false);
-
-                        yp_insert_rule(selector, id, val, '');
-
-                    }
+                    insert_rule(null, id, val, '');
 
                     // Update.
                     $(this).parent().find(".wqminicolors-swatch-color").css("background-image", "none");
 
                     // Option Changed
-                    yp_option_change();
+                    option_change();
 
                 });
 
@@ -8160,14 +8708,13 @@
             /* ---------------------------------------------------- */
             /* Input Event                                          */
             /* ---------------------------------------------------- */
-            function yp_input_option(id) {
+            function input_option(id) {
 
                 // Keyup
                 $("#yp-" + id).on('keyup', function() {
 
                     $(this).parent().parent().addClass("eye-enable");
 
-                    var selector = yp_get_current_selector();
                     var val = $(this).val();
 
                     // Disable
@@ -8183,11 +8730,11 @@
                         $(this).val('');
                     }
 
-                    val = val.replace(/\)/g, '').replace(/\url\(/g, '');
-
-                    $(this).val(val);
-
                     if (id == 'background-image') {
+
+                        val = val.replace(/\)/g, '').replace(/\url\(/g, '');
+
+                        $(this).val(val);
 
                         val = 'url(' + val + ')';
 
@@ -8205,11 +8752,10 @@
                     }
 
                     // Set for demo
-
-                    yp_insert_rule(selector, id, val, '');
+                    insert_rule(null, id, val, '');
 
                     // Option Changed
-                    yp_option_change();
+                    option_change();
 
                 });
 
@@ -8217,11 +8763,11 @@
 
 
             // Clean data that not selected yet.
-            function yp_simple_clean(){
+            function simple_clean(){
 
                 // Animate update
                 if(body.hasClass("yp-animate-manager-active")){
-                    yp_anim_manager();
+                    animation_manager();
                 }
 
                 // Clean basic classes
@@ -8237,7 +8783,7 @@
                 iframe.find(".yp-edit-menu,.yp-selected-handle,.yp-selected-others-box,.yp-selected-tooltip,.yp-selected-boxed-top,.yp-selected-boxed-left,.yp-selected-boxed-right,.yp-selected-boxed-bottom,.yp-selected-boxed-margin-top,.yp-selected-boxed-margin-left,.yp-selected-boxed-margin-right,.yp-selected-boxed-margin-bottom,.selected-just-it-span,.yp-selected-boxed-padding-top,.yp-selected-boxed-padding-left,.yp-selected-boxed-padding-right,.yp-selected-boxed-padding-bottom,.yp-live-css,.yp-selected-tooltip span").remove();
 
                 // Update
-                if($("body").hasClass("yp-select-just-it") == false){
+                if($("body").hasClass("yp-select-just-it") === false){
                     window.selectorClean = null;
                 }
 
@@ -8247,33 +8793,40 @@
                     $(".info-no-element-selected").show();
                 }
 
+                $(".yp-disable-btn.active").removeClass("active");
+
             }
 
 
             /* ---------------------------------------------------- */
             /* Remove data                                          */
             /* ---------------------------------------------------- */
-            function yp_clean() {
+            function clean() {
 
                 // Use yp_simple_clean function for simple clean data.
-                if(body.hasClass("yp-content-selected") == false){
-                    yp_simple_clean();
+                if(is_content_selected() === false){
+                    simple_clean();
                     return false;
                 }else{
 
                     // Stop if dragging
-                    if (body.hasClass("yp-dragging")){
+                    if (is_dragging()){
                         return false;
+                    }
+
+                    // Hide if close while playing an animate.
+                    if(body.hasClass("yp-force-hide-select-ui")){
+                        body.removeClass("yp-force-hide-select-ui yp-hide-borders-now");
                     }
 
                     /* this function remove menu from selected element */
                     if (iframe.find(".context-menu-active").length > 0) {
-                        iframe.find(".yp-selected").contextMenu("hide");
+                        get_selected_element().contextMenu("hide");
                     }
 
                     // destroy ex element draggable feature.
-                    if (iframeBody.find(".yp-selected").length > 0){
-                        iframe.find(".yp-selected").draggable("destroy");
+                    if (iframe.find(".yp-selected.ui-draggable").length > 0){
+                        get_selected_element().draggable("destroy");
                     }
 
                     // Clean animate buttons classes
@@ -8285,7 +8838,7 @@
                     $(".lock-btn").removeClass("active");
 
                     // Clean popovers.
-                    $("#set-animation-name-group,#margin-left-group,#margin-right-group,#margin-top-group,#margin-bottom-group,#padding-left-group,#padding-right-group,#padding-top-group,#padding-bottom-group,#border-width-group,#background-color-group,.background-parallax-div,#background-size-group,#background-repeat-group,#background-attachment-group,#background-position-group,#box-shadow-color-group,#border-style-group,#animation-name-group").popover("destroy");
+                    $("#set-animation-name-group,#margin-left-group,#margin-right-group,#margin-top-group,#margin-bottom-group,#padding-left-group,#padding-right-group,#padding-top-group,#padding-bottom-group,#background-color-group,.background-parallax-div,#background-size-group,#background-repeat-group,#background-attachment-group,#background-position-group,#box-shadow-color-group,#animation-name-group").popover("destroy");
 
                     // close open menu
                     $(".yp-editor-list > li.active:not(.yp-li-about) > h3").trigger("click");
@@ -8313,24 +8866,32 @@
                     $(".yp-active-contextmenu").removeClass("yp-active-contextmenu");
 
                     // Cancel if animater active
-                    if($("body").hasClass("yp-anim-creator") || $("body").hasClass("yp-anim-link-toggle")){
+                    if(is_animate_creator() || $("body").hasClass("yp-anim-link-toggle")){
                         yp_anim_cancel();
                     }
 
                     // Hide some elements from panel
                     $(".background-parallax-div,.yp-transform-area").hide();
+                    $(".yp-on").removeClass("yp-on");
 
-                    yp_simple_clean();
+                    simple_clean();
 
                 }
 
             }
 
+
+            function the_editor_data(){
+                return iframe.find(".yp-styles-area");
+            }
+
+
+
             /* ---------------------------------------------------- */
             /* Getting Stylizer data                                */
             /* ---------------------------------------------------- */
-            function yp_get_styles_area() {
-                var data = iframe.find(".yp-styles-area").html();
+            function get_editor_data() {
+                var data = the_editor_data().html();
                 data = data.replace(/</g, 'YP|@');
                 data = data.replace(/>/g, 'YP@|');
                 return data;
@@ -8339,17 +8900,35 @@
             /* ---------------------------------------------------- */
             /* Getting CSS data                                     */
             /* ---------------------------------------------------- */
-            function yp_get_clean_css(a) {
+            function get_clean_css(a) {
 
-
-                var data = yp_get_css_data('desktop');
+                var data = get_css_by_screensize('desktop');
 
                 // Adding break
                 data = data.replace(/\)\{/g, "){\r").replace(/\)\{/g, "){\r");
 
                 // Clean spaces for nth-child and not.
-                data = data.replace(/nth-child\((.*?)\)\{\r\r/g, "nth-child\($1\)\{");
-                data = data.replace(/not\((.*?)\)\{\r\r/g, "not\($1\)\{");
+
+                // Clean spaces for nth-child and not.
+                var ars = Array(
+                    "nth-child",
+                    "not",
+                    "lang",
+                    "nth-last-child",
+                    "nth-last-of-type",
+                    "nth-of-type"
+                );
+
+                for(var ai = 0; ai < ars.length; ai++){
+
+                    // Reg
+                    var k = new RegExp(ars[ai] + "\\((.*?)\\)\{\r\r", "g");
+
+                    // Replace
+                    data = data.replace(k, ars[ai] + "\($1\)\{");
+
+                }
+
 
                 if (iframe.find(".yp_current_styles").length > 0) {
 
@@ -8365,7 +8944,7 @@
 
                     $.each(mediaArray, function(i, v) {
 
-                        var q = yp_get_css_data(v);
+                        var q = get_css_by_screensize(v);
 
                         // Add extra tab for media query content.
                         q = "\t" + q.replace(/\r/g, '\r\t').replace(/\t$/g, '').replace(/\t$/g, '');
@@ -8402,13 +8981,13 @@
             /* ---------------------------------------------------- */
             /* Create All Css Codes For current selector            */
             /* ---------------------------------------------------- */
-            function yp_get_css_data(size) {
+            function get_css_by_screensize(size) {
 
                 if (iframe.find(".yp_current_styles").length <= 0) {
                     return '';
                 }
 
-                var totalCreated, classes, selector;
+                var totalCreated, classes, selector, data;
 
                 totalCreated = '';
 
@@ -8417,10 +8996,12 @@
                     if (!$(this).hasClass("yp_step_end")) {
 
                         if ($(this).first().html().indexOf("@media") != -1) {
-                            var data = $(this).first().html().split("{")[1] + "{" + $(this).first().html().split("{")[2].replace("}}", "}");
+                            data = $(this).first().html().split("{")[1] + "{" + $(this).first().html().split("{")[2].replace("}}", "}");
                         } else {
-                            var data = $(this).first().html();
+                            data = $(this).first().html();
                         }
+
+                        data = data.replace(/\/\*(.*?)\*\//g, "");
 
                         selector = data.split("{")[0];
 
@@ -8430,10 +9011,11 @@
 
                         iframe.find("style[data-style=" + classes + "][data-size-mode='" + size + "']").each(function() {
 
+                            var datai;
                             if ($(this).first().html().indexOf("@media") != -1) {
-                                var datai = $(this).first().html().split("{")[1] + "{" + $(this).first().html().split("{")[2].replace("}}", "}");
+                                datai = $(this).first().html().split("{")[1] + "{" + $(this).first().html().split("{")[2].replace("}}", "}");
                             } else {
-                                var datai = $(this).first().html();
+                                datai = $(this).first().html();
                             }
 
                             totalCreated += "\t" + datai.split("{")[1].split("}")[0] + ';\r';
@@ -8457,166 +9039,436 @@
             }
 
             // toggle created background image.
-            $("#background-image-group .yp-none-btn,#background-image-group .yp-disable-btn").click(function() {
-                $("#background-image-group .yp-background-image-show").toggle();
+            $("#background-image-group .yp-none-btn,#background-image-group .yp-disable-btn").click(function(e) {
+                if(e.originalEvent){
+                    $("#background-image-group .yp-background-image-show").toggle();
+                }
             });
+
+
+            // Getting MS from CSS Duration
+            function duration_ms(durations){
+
+                durations = durations.toString();
+                durations = durations.replace(/ms/g,"");
+
+                // result
+                var duration = 0;
+                var ms;
+
+                // Is multi durations?
+                if(durations.indexOf(",") != -1){
+
+                    var durationsArray = durations.split(",");
+
+                    for(var i = 0; i < durationsArray.length; i++){
+
+                        var val = durationsArray[i];
+                        
+                        // Has dot?
+                        if(val.indexOf(".") != -1){
+
+                            ms = parseFloat(val).toString().split(".")[1].length;
+                            val = val.replace(".","").toString();
+
+                            if(ms == 2){
+                                val = val.replace(/s/g, "0");
+                            }else if(ms == 1){
+                                val = val.replace(/s/g, "00");
+                            }
+
+                        }else{
+                            val = val.replace(/s/g, "000");
+                        }
+
+                        duration = parseFloat(duration) + parseFloat(val);
+
+                    }
+
+                    return duration;
+
+                }else{
+
+                    // Has dot?
+                    if(durations.indexOf(".") != -1){
+
+                        ms = parseFloat(durations).toString().split(".")[1].length;
+                        durations = durations.replace(".","").toString();
+
+                        if(ms == 2){
+                            durations = durations.replace(/s/g, "0");
+                        }else if(ms == 1){
+                            durations = durations.replace(/s/g, "00");
+                        }
+
+                    }else{
+                        durations = durations.replace(/s/g, "000");
+                    }
+
+                    return durations;
+
+                }
+
+            }
+
+
+            // Get inserted style by selector and rule.
+            function get_data_value(selector,css,check,size){
+
+                // Defaults
+                var dataContentNew,value,valueDetail = false;
+
+                // Size mean media-size.
+                if(isUndefined(size)){
+                    size = get_media_condition();
+                }
+
+                // replace fake rules as scale-transfrom.
+                var cssData = get_css_id(css);
+
+                // Get real css Name
+                css = cssData[0];
+
+                // scale etc.
+                valueDetail = cssData[1];
+
+                // Get current selector
+                if(selector == null){
+                    selector = get_current_selector();
+                }
+
+                // Get ID
+                selector = get_id(selector);
+
+                // Find
+                var style = iframe.find('.' + selector + '-' + css + '-style[data-size-mode="'+size+'"]');
+
+
+                // If there
+                if (style.length === 0){
+                    return false;
+                }else if(check == true){
+
+                    if(valueDetail != null){ // if has detail
+
+                        if(style.html().match(new RegExp(valueDetail,"g"))){
+                            return true;
+                        }else{
+                            return false;
+                        }
+
+                    }else{ // No detail
+                        return true;
+                    }
+
+                }
+
+                // Get Data
+                var dataContent = style.html();
+
+                // get rule value by an css style string.
+                return escape_data_value(dataContent);
+
+            }
+
+
+            // Getting rule value from an string as "element{color:red;}"
+            function escape_data_value(data){
+
+                // Defaults
+                var value,dataNew;
+
+                if(data === null || data === undefined || data === ''){
+                    return false;
+                }
+
+                data = data.replace(/\/\*(.*?)\*\//g, "");
+
+                // HasMedia?
+                if(data.indexOf("@media") != -1){
+
+                    // Get media content
+                    dataNew = data.match(/\){(.*?)\}$/g);
+
+                    // re check for media.
+                    if(dataNew == null){
+                        dataNew = data.match(/\{(.*?)\}$/g);
+                    }
+
+                }else{
+
+                    dataNew = data;
+
+                }
+
+                // Value
+                value = dataNew.toString().split(":")[1].split("}")[0];
+
+                // Be sure
+                if(!value){
+                    return false;
+                }
+
+                // who do like important tag?.
+                value = value.replace(/\s+?!important/g,'').replace(/\;$/g,'').trim();
+
+                // return
+                return value;
+
+            }
+
+
+            // Get real CSS name and replace fake rules as scale-transfrom.
+            // param1 : real CSS name, param2 : [scale]-transfrom. ie "scale".
+            function get_css_id(css){
+
+                var cssDetail = null;
+
+                // No webkit
+                css = css.replace(/\-webkit\-/g,'');
+
+                // Update transfrom parts
+                if(css.indexOf("-transform") != -1 && css != 'text-transform'){
+
+                    // CSS
+                    cssDetail = css.replace(/-transform/g,'');
+                    css = 'transform';
+                    cssDetail = cssDetail.replace(/\-/g,"");
+
+                }
+
+                // Update filter parts
+                if(css.indexOf("-filter") != -1){
+
+                    // CSS
+                    cssDetail = css.replace(/-filter/g,'');
+                    css = 'filter';
+
+                }
+
+                // Update filter parts
+                if(css.indexOf("box-shadow-") != -1){
+
+                    // CSS
+                    css = 'box-shadow';
+                    cssDetail = css.replace(/box-shadow-/g,'');
+
+                }
+
+                return [css,cssDetail];
+
+            }
+
+
 
             /* ---------------------------------------------------- */
             /* Set Default Option Data                              */
             /* ---------------------------------------------------- */
-            function yp_set_default(evt, $n, evt_status) {
+            function set_default_value(id) {
 
-                // element
-                if (evt_status === true) {
-                    var eventTarget = iframe.find(evt.target);
-                } else {
-                    var eventTarget = iframe.find(evt);
-                }
+                // Get Selector
+                var selector = get_current_selector();
 
-                // Remove Active colors:
-                $(".yp-nice-c.active,.yp-flat-c.active,.yp-meterial-c.active").removeClass("active");
+                // Get Element Object
+                var the_element = iframe.find(selector);
 
-                // Adding animation helper classes
-                if ($n == 'animation-name' || $n == 'animation-iteration-count' || $n == 'animation-fill-mode' || $n == 'animation-duration' || $n == 'animation-delay') {
-                    iframe.find(".yp-selected,.yp-selected-others").addClass("yp_onscreen").addClass("yp_hover").addClass("yp_click").addClass("yp_focus");
+                // Adding animation classes to element
+                if (id == 'animation-name' || id == 'animation-iteration-count' || id == 'animation-duration' || id == 'animation-delay'){
+                    the_element.addClass("yp_onscreen yp_hover yp_click yp_focus");
                 }
 
                 setTimeout(function() {
 
-                    var elementID = yp_id($("body").attr("data-clickable-select"));
+                    // Current media size
+                    var size = get_current_media_query();
 
-                    // There is any css
-                    if (iframe.find('.' + elementID + "-" + $n + "-style").length > 0) {
-                        $("#" + $n + "-group").addClass("eye-enable");
+                    // Default
+                    var ypEvent = '';
+
+                        // onscreen event
+                    if (iframe.find('[data-style="' + elementID + get_id(".yp_onscreen") + '"][data-size-mode="'+size+'"]').length > 0) {
+                        ypEvent = 'yp_onscreen';
                     }
 
-                    // add disable eye icon for border style
-                    if ($n == "border-style") {
-                        if (iframe.find('.' + elementID + "-border-top-style-style").length > 0 && iframe.find('.' + elementID + "-border-bottom-style-style").length > 0 && iframe.find('.' + elementID + "-border-left-style-style").length > 0 && iframe.find('.' + elementID + "-border-right-style-style").length > 0) {
-                            $("#" + $n + "-group").addClass("eye-enable");
-                        }
+                    // click event
+                    if (iframe.find('[data-style="' + elementID + get_id(".yp_click") + '"][data-size-mode="'+size+'"]').length > 0) {
+                        ypEvent = 'yp_click';
                     }
 
-                    // add disable eye icon for border style
-                    if ($n == "border-width") {
-                        if (iframe.find('.' + elementID + "-border-top-width-style").length > 0 && iframe.find('.' + elementID + "-border-bottom-width-style").length > 0 && iframe.find('.' + elementID + "-border-left-width-style").length > 0 && iframe.find('.' + elementID + "-border-right-width-style").length > 0) {
-                            $("#" + $n + "-group").addClass("eye-enable");
-                        }
+                    // hover event
+                    if (iframe.find('[data-style="' + elementID + get_id(".yp_hover") + '"][data-size-mode="'+size+'"]').length > 0) {
+                        ypEvent = 'yp_hover';
                     }
 
-                    // add disable eye icon for border style
-                    if ($n == "border-color") {
-                        if (iframe.find('.' + elementID + "-border-top-color-style").length > 0 && iframe.find('.' + elementID + "-border-bottom-color-style").length > 0 && iframe.find('.' + elementID + "-border-left-color-style").length > 0 && iframe.find('.' + elementID + "-border-right-color-style").length > 0) {
-                            $("#" + $n + "-group").addClass("eye-enable");
-                        }
+                        // Focus event
+                    if (iframe.find('[data-style="' + elementID + get_id(".yp_focus") + '"][data-size-mode="'+size+'"]').length > 0) {
+                        ypEvent = 'yp_focus';
                     }
 
-                    // data is default value
-                    var data;
-                    if ($n != 'animation-play') {
-                        data = eventTarget.css($n);
+                    // hover event default
+                    if ($("body").hasClass("yp-selector-hover") && ypEvent == '') {
+                        ypEvent = 'yp_hover';
                     }
 
-                    // Chome return "rgba(0,0,0,0)" if no background color,
-                    // its is chrome hack.
-                    if ($n == 'background-color') {
-                        if (data == 'rgba(0, 0, 0, 0)') {
-                            data = 'transparent';
-                        }
+                    // Focus event default
+                    if ($("body").hasClass("yp-selector-focus") && ypEvent == '') {
+                        ypEvent = 'yp_focus';
                     }
 
-                    // animation helpers: because need special data for animation rules.
-                    if ($n == 'animation-play') {
+                        // default is onscreen
+                    if (isUndefined(ypEvent) || ypEvent == '') {
+                        ypEvent = 'yp_onscreen';
+                    }
 
-                        // Default
-                        var data = 'yp_onscreen';
 
-                        if (iframe.find('[data-style="' + elementID + yp_id(".yp_onscreen") + '"][data-size-mode="'+yp_get_current_media_query()+'"]').length > 0) {
-                            data = 'yp_onscreen';
+                    // replace fake rules as scale-transfrom.
+                    var ruleID = get_css_id(id);
+
+                    // Get details
+                    var elementID = ruleID[0];
+                    var cssDetail = ruleID[1];
+
+                    // Has editor style?
+                    if (id == 'animation-name' || id == 'animation-iteration-count' || id == 'animation-duration' || id == 'animation-delay'){
+
+                        if(get_data_value(selector+"."+ypEvent,id,true)){
+                            $("#" + id + "-group").addClass("eye-enable");
                         }
 
-                        if (iframe.find('[data-style="' + elementID + yp_id(".yp_click") + '"][data-size-mode="'+yp_get_current_media_query()+'"]').length > 0) {
-                            data = 'yp_click';
-                        }
-
-                        if (iframe.find('[data-style="' + elementID + yp_id(".yp_hover") + '"][data-size-mode="'+yp_get_current_media_query()+'"]').length > 0) {
-                            data = 'yp_hover';
-                        }
-
-                        if (iframe.find('[data-style="' + elementID + yp_id(".yp_focus") + '"][data-size-mode="'+yp_get_current_media_query()+'"]').length > 0) {
-                            data = 'yp_focus';
-                        }
-
-                        if ($("body").hasClass("yp-selector-hover")) {
-                            data = 'yp_hover';
-                        }
-
-                        if ($("body").hasClass("yp-selector-focus")) {
-                            data = 'yp_focus';
-                        }
-
-                        if (isUndefined(data)) {
-                            data = 'yp_onscreen';
+                    }else{
+                        
+                        if(get_data_value(selector,id,true)){
+                            $("#" + id + "-group").addClass("eye-enable");
                         }
 
                     }
 
                     
 
-                    // Animation name play.
-                    if ($n == 'animation-name' && data != 'none') {
+                    // data is default value
+                    var data,numberData;
+
+                    // Getting CSS Data. (Animation play not an CSS rule.)
+                    if (id != 'animation-play' && id != 'border-width' && id != 'border-color' && id != 'border-style' && elementID != 'transform') {
+                        data = the_element.css(elementID);
+                        numberData = number_filter(the_element.css(elementID));
+                    }
+
+                    // Chome return "rgba(0,0,0,0)" if no background color,
+                    // its is chrome hack.
+                    if (id == 'background-color' && data == 'rgba(0, 0, 0, 0)') {
+                        data = 'transparent';
+                    }
+
+
+                    // Check border style
+                    var top;
+                    if(id == 'border-style'){
+
+                        data = 'solid';
+
+                        top = the_element.css("border-top-style");
+
+                        if(top == the_element.css("border-left-style") && top == the_element.css("border-right-style") && top == the_element.css("border-bottom-style")){
+                            data = top;
+                        }
+                        
+                    }
+
+                    // Check border width
+                    if(id == 'border-width'){
+
+                        data = '0px';
+                        numberData = 0;
+
+                        top = the_element.css("border-top-width");
+
+                        if(top == the_element.css("border-left-width") && top == the_element.css("border-right-width") && top == the_element.css("border-bottom-width")){
+                            data = top;
+                            numberData = number_filter(top);
+                        }
+                        
+                    }
+
+                    // Check border color
+                    if(id == 'border-color'){
+
+                        data = the_element.css("color");
+
+                        top = the_element.css("border-top-color");
+
+                        if(top == the_element.css("border-left-color") && top == the_element.css("border-right-color") && top == the_element.css("border-bottom-color")){
+                            data = top;
+                        }
+                        
+                    }
+
+
+                    // Check if margin left/right is auto or else.
+                    if(id == 'margin-left' || id == 'margin-right'){
+
+                        var frameWidth = iframe.width();
+
+                        var marginRight = parseFloat(the_element.css("margin-right"));
+                        var marginLeft = parseFloat(the_element.css("margin-left"));
+                        var width = parseFloat(the_element.css("width"));
+
+                        if(frameWidth == (marginLeft * 2) + width){
+                            data = 'auto';
+                            numberData = 0;
+                        }
+
+                    }
+
+
+                    // some script for custom CSS Rule: animation-play
+                    if (id == 'animation-play') {
+                        data = ypEvent;
+                    }
+
+                
+                    // Play if is animation name.
+                    if (id == 'animation-name' && data != 'none'){
 
                         // Add class.
                         body.addClass("yp-hide-borders-now yp-force-hide-select-ui");
 
-                        var time = eventTarget.css("animation-duration");
-                        var timeDelay = eventTarget.css("animation-delay");
+                        var time = the_element.css("animation-duration");
+                        var timeDelay = the_element.css("animation-delay");
                         
-                        if (isUndefined(time)) {
-                            time = '1000';
-                        } else {
-                            time = time.replace("ms", ""); // ms delete
-                            timeDelay = timeDelay.replace("ms","");
+                        // Getting right time delay if have multiple animations.
+                        var newDelay = get_multiple_delay(time,timeDelay);
 
-                            if(time.indexOf(".") != -1){
+                        if(newDelay !== false){
+                            timeDelay = newDelay;
+                        }else if(isUndefined(timeDelay)){
+                            timeDelay = 0;
+                        }else{
+                            timeDelay = duration_ms(timeDelay); // timeDelay
+                        }
 
-                                var ln = parseFloat(time).toString().split(".")[1].length;
-                                time = time.replace(".","");
-
-                                if(ln == 2){
-                                    time = time.replace("s", "0");
-                                }else if(ln == 1){
-                                    time = time.replace("s", "00");
-                                }
-                                
-                            }else{
-                                time = time.replace("s", "000");
-                            }
-
-
-                            if(timeDelay.indexOf(".") != -1){
-
-                                var ln = parseFloat(timeDelay).toString().split(".")[1].length;
-                                timeDelay = timeDelay.replace(".","");
-
-                                if(ln == 2){
-                                    timeDelay = timeDelay.replace("s", "0");
-                                }else if(ln == 1){
-                                    timeDelay = timeDelay.replace("s", "00");
-                                }
-                                
-                            }else{
-                                timeDelay = timeDelay.replace("s", "000");
-                            }
-
-
+                        if (isUndefined(time)){
+                            time = 1000;
+                        }else{
+                            time = duration_ms(time); // Time
                         }
                         
-                        time = parseFloat(time) + parseFloat(timeDelay) + 200;
-                        setTimeout(function() {
+                        time = parseFloat(time) + parseFloat(timeDelay);
+
+                        if(time === 0){
+                            time = 1000;
+                        }
+
+                        time = time + 100;
+
+                        clear_animation_timer();
+
+                        window.animationTimer2 = setTimeout(function() {
+
+                            element_animation_end();
 
                             // Update.
-                            yp_draw();
+                            draw();
 
                             // remove class.
                             body.removeClass("yp-hide-borders-now yp-force-hide-select-ui");
@@ -8625,296 +9477,236 @@
 
                     }
 
-                    // Num: numberic data
-                    var $num = yp_num(eventTarget.css($n));
-                    var numOrginal = eventTarget.css($n);
 
-                    // filter = data of filter css rule.
-                    if ($n.indexOf("-filter") != -1) {
+                
+                    // filter = explode filter data to parts
+                    if (elementID == 'filter'){
 
-                        var filter = eventTarget.css("filter");
-                        if (filter === null || filter == 'none' || filter == undefined) {
-                            filter = eventTarget.css("-webkit-filter"); // for chrome.
+                        // Try to get css with webkit prefix.
+                        if (data === null || data == 'none' || data === undefined) {
+                            data = the_element.css("-webkit-filter"); // for chrome.
                         }
 
                         // Special default values for filter css rule.
-                        if (filter != 'none' && filter !== null && filter !== undefined && $n.indexOf("-filter") != -1) {
+                        if (data != 'none' && data !== null && data !== undefined) {
 
-                            if ($n == 'blur-filter') {
-                                data = filter.match(/blur\((.*?)\)/g);
-                            }
+                            // Get brightness, blur etc from filter data.
+                            data = data.match(new RegExp(cssDetail+"\\((.*?)\\)","g"));
 
-                            if ($n == 'brightness-filter') {
-                                data = filter.match(/brightness\((.*?)\)/g);
-                            }
-
-                            if ($n == 'grayscale-filter') {
-                                data = filter.match(/grayscale\((.*?)\)/g);
-                            }
-
-                            if ($n == 'contrast-filter') {
-                                data = filter.match(/contrast\((.*?)\)/g);
-                            }
-
-                            if ($n == 'hue-rotate-filter') {
-                                data = filter.match(/hue-rotate\((.*?)\)/g);
-
-                                if (data !== null) {
-                                    data = (data.toString().replace("deg", "").replace("hue-rotate(", "").replace(")", ""));
-                                }
-
-                            }
-
-                            if ($n == 'saturate-filter') {
-                                data = filter.match(/saturate\((.*?)\)/g);
-                            }
-
-                            if ($n == 'sepia-filter') {
-                                data = filter.match(/sepia\((.*?)\)/g);
-                            }
-
+                            // is?
                             if (isDefined(data)) {
-                                data = yp_num(data.toString());
-                                $num = data;
-                            } else {
-                                $num = 0;
+
+                                // replace prefixes
+                                data = data.toString().replace("deg", "").replace("hue-rotate(", "").replace(")", "");
+
+                                // Update data
+                                data = number_filter(data);
+
+                                // Update number data
+                                numberData = data;
+
+                            }else{
+
+                                // Set default
                                 data = 'disable';
+                                numberData = 0;
+
                             }
 
-                        }
+                        }else{
 
-                        // Special default values for brightness and contrast.
-                        if ($n.indexOf("-filter") != -1) {
-                            if (filter == 'none' || filter === null || filter == undefined) {
-                                data = 'disable';
-                                $num = 0;
+                            // Set default
+                            data = 'disable';
+                            numberData = 0;
 
-                                if ($n == 'brightness-filter') {
-                                    $num = 1;
-                                }
-
-                                if ($n == 'contrast-filter') {
-                                    $num = 1;
-                                }
-
-                            }
                         }
 
                     }
+
 
                     // Font weight fix.
-                    if ($n == 'font-weight') {
-                        if (data == 'bold') {
-                            data = '600';
-                        }
-                        if (data == 'normal') {
-                            data = '600';
-                        }
+                    if (id == 'font-weight'){
+
+                        if(data == 'bolder'){ data = '700'; }
+                        if(data == 'bold'){ data = '600'; }
+                        if(data == 'normal'){ data = '400'; }
+                        if(data == 'lighter'){ data = '300'; }
+
                     }
 
-                    if ($n.indexOf("-transform") != -1 && $n != 'text-transform') {
 
-                        var transform = 'none';
+                    // transform = explode transform data to parts
+                    if (elementID == 'transform') {
+
+                        // Get transfrom style from editor data.
+                        data = get_data_value(selector,id,size);
 
                         // Getting transform value from HTML Source ANIM.
-                        if ($("body").hasClass("yp-anim-creator")) {
+                        var styleString = null;
+                        if (is_animate_creator()){
 
-                            var currentScene = $("body").attr("data-anim-scene").replace("scene-", "");
-
-                            var ht = '';
-                            var transform = '';
+                            var currentScene = parseInt($("body").attr("data-anim-scene").replace("scene-", ""));
 
                             // Check scenes by scenes for get transfrom data.
-                            if (iframe.find('.scene-' + (currentScene) + ' .scenes-transform-style').length > 0) {
+                            for(var transfromIndex = 0; transfromIndex < 6; transfromIndex++){
 
-                                ht = iframe.find('.scene-' + (currentScene) + ' .scenes-transform-style').last().html();
-                                transform = ht.split(":")[1].split("}")[0];
+                                // style element
+                                var styleOb = iframe.find('.scene-' + (currentScene - transfromIndex) + ' .scenes-transform-style');
 
-                            } else if (iframe.find('.scene-' + (currentScene - 1) + ' .scenes-transform-style').length > 0) {
-
-                                ht = iframe.find('.scene-' + (currentScene - 1) + ' .scenes-transform-style').last().html();
-                                transform = ht.split(":")[1].split("}")[0];
-
-                            } else if (iframe.find('.scene-' + (currentScene - 2) + ' .scenes-transform-style').length > 0) {
-
-                                ht = iframe.find('.scene-' + (currentScene - 2) + ' .scenes-transform-style').last().html();
-                                transform = ht.split(":")[1].split("}")[0];
-
-                            } else if (iframe.find('.scene-' + (currentScene - 3) + ' .scenes-transform-style').length > 0) {
-
-                                ht = iframe.find('.scene-' + (currentScene - 3) + ' .scenes-transform-style').last().html();
-                                transform = ht.split(":")[1].split("}")[0];
-
-                            } else if (iframe.find('.scene-' + (currentScene - 4) + ' .scenes-transform-style').length > 0) {
-
-                                ht = iframe.find('.scene-' + (currentScene - 4) + ' .scenes-transform-style').last().html();
-                                transform = ht.split(":")[1].split("}")[0];
-
-                            } else if (iframe.find('.scene-' + (currentScene - 5) + ' .scenes-transform-style').length > 0) {
-
-                                ht = iframe.find('.scene-' + (currentScene - 5) + ' .scenes-transform-style').last().html();
-                                transform = ht.split(":")[1].split("}")[0];
-
-                            } else {
-                                var transform = 'none';
-                            }
-
-                        }
-
-                        // Getting transform value from HTML Source.
-                        if (transform == 'none') {
-                            if (iframe.find('.' + elementID + '-' + 'transform-style').length > 0) {
-                                var ht = iframe.find('.' + elementID + '-' + 'transform-style').html();
-                                var transform = ht.split(":")[1].split("}")[0];
-                            } else {
-                                var transform = 'none';
-                            }
-                        }
-
-                        // Special Default Transform css rule value.
-                        if (transform != 'none' && transform !== null && transform !== undefined && $n.indexOf("-transform") != -1 && $n != 'text-transform') {
-
-                            if ($n == 'scale-transform') {
-                                data = transform.match(/scale\((.*?)\)/g);
-                            }
-
-                            if ($n == 'rotate-transform') {
-                                data = transform.match(/rotate\((.*?)\)/g);
-                            }
-
-                            if ($n == 'translate-x-transform') {
-                                data = transform.match(/translatex\((.*?)\)/g);
-                            }
-
-                            if ($n == 'translate-y-transform') {
-                                data = transform.match(/translatey\((.*?)\)/g);
-                            }
-
-                            if ($n == 'skew-x-transform') {
-                                data = transform.match(/skewx\((.*?)\)/g);
-                            }
-
-                            if ($n == 'skew-y-transform') {
-                                data = transform.match(/skewy\((.*?)\)/g);
-                            }
-
-                            if (isDefined(data)) {
-                                data = yp_num(data.toString());
-                                $num = data;
-                            } else {
-                                $num = 0;
-                                data = 'disable';
-
-                                if ($n == 'scale-transform') {
-                                    $num = 1;
+                                // Get
+                                if (styleOb.length > 0) {
+                                    styleString = styleOb.last().html();
+                                    break;
                                 }
 
                             }
 
+                            // Get scene transform data else default.
+                            if(styleString != null){
+                                data = escape_data_value(styleString);
+                            }
+
+                        } // Anim end.
+
+                        
+                        // explode transform data
+                        if (data != 'none' && data !== false && data !== undefined) {
+
+                            // Get brightness, blur etc from filter data.
+                            data = data.match(new RegExp(cssDetail+"\\((.*?)\\)","g"));
+
+                            // is?
+                            if (isDefined(data)) {
+
+                                // String.
+                                data = data.toString();
+
+                                // Update data
+                                data = number_filter(data);
+
+                                // Update number data
+                                numberData = data;
+
+                            }else{
+
+                                // Set default
+                                data = 'disable';
+                                numberData = 0;
+
+                            }
+
+                        }else{
+
+                            // Set default
+                            data = 'disable';
+                            numberData = 0;
+
                         }
 
                     }
 
-                    if ($n == "animation-duration" && $("body").hasClass("yp-anim-creator") === true) {
+                    // Animation creator; don't append 0s duration.
+                    if (id == "animation-duration" && is_animate_creator() === true) {
                         if (data == '0s' || data == '0ms') {
                             return false;
                         }
                     }
 
-                    if (isUndefined(window.styleData)) {
-                        window.styleData = '';
-                    }
-
-                    var styleData = eventTarget.attr("style");
+                    // Get styleAttr
+                    var styleData = the_element.attr("style");
 
                     if (isUndefined(styleData)) {
                         styleData = '';
                     }
 
-                    if ($n == 'position' && window.styleData.indexOf("relative") == -1 && styleData.indexOf("relative") != -1) {
+                    // Position: Check if relative added by drag drop or not. so add static.
+                    if (id == 'position' && window.styleData.indexOf("relative") == -1 && styleData.indexOf("relative") != -1) {
                         data = 'static';
                     }
 
-                    if($n == 'min-width' || $n == 'min-height'){
+                    // Set auto
+                    if(id == 'min-width' || id == 'min-height'){
                         if(parseFloat(data) == 0){
                             data = 'auto';
                         }
                     }
 
-                    if ($n == 'bottom') {
+                    // Check bottom and set auto
+                    if (id == 'bottom') {
 
-                        if (parseFloat(eventTarget.css("top")) + parseFloat(eventTarget.css("bottom")) == 0) {
+                        if (parseFloat(the_element.css("top")) + parseFloat(the_element.css("bottom")) === 0) {
                             data = 'auto';
                         }
                     }
 
-                    if ($n == 'right') {
-                        if (parseFloat(eventTarget.css("left")) + parseFloat(eventTarget.css("right")) == 0) {
+                    // Check right and set auto
+                    if (id == 'right') {
+                        if (parseFloat(the_element.css("left")) + parseFloat(the_element.css("right")) === 0) {
                             data = 'auto';
                         }
                     }
 
                     // Box Shadow.
-                    if ($n.indexOf("box-shadow-") != -1 && eventTarget.css("box-shadow") != 'none' && eventTarget.css("box-shadow") !== null && eventTarget.css("box-shadow") !== undefined) {
+                    if (elementID == 'box-shadow' && data != 'none' && data !== null && data !== undefined) {
 
                         // Box shadow color default value.
-                        if ($n == 'box-shadow-color') {
+                        if (id == 'box-shadow-color') {
 
                             // Hex
-                            if (eventTarget.css("box-shadow").indexOf("#") != -1) {
-                                if (eventTarget.css("box-shadow").split("#")[1].indexOf("inset") == -1) {
-                                    data = $.trim(eventTarget.css("box-shadow").split("#")[1]);
+                            if (data.indexOf("#") != -1) {
+                                if (data.split("#")[1].indexOf("inset") == -1) {
+                                    data = $.trim(data.split("#")[1]);
                                 } else {
-                                    data = $.trim(eventTarget.css("box-shadow").split("#")[1].split(' ')[0]);
+                                    data = $.trim(data.split("#")[1].split(' ')[0]);
                                 }
                             } else {
-                                if (eventTarget.css("box-shadow").indexOf("rgb") != -1) {
-                                    data = eventTarget.css("box-shadow").match(/rgb(.*?)\((.*?)\)/g).toString();
+                                if (data.indexOf("rgb") != -1) {
+                                    data = data.match(/rgb(.*?)\((.*?)\)/g).toString();
                                 }
                             }
 
                         }
 
                         // split all box-shadow data.
-                        var numbericBox = eventTarget.css("box-shadow").replace(/rgb(.*?)\((.*?)\) /g, '').replace(/ rgb(.*?)\((.*?)\)/g, '').replace(/inset /g, '').replace(/ inset/g, '');
+                        var numbericBox = data.replace(/rgb(.*?)\((.*?)\) /g, '').replace(/ rgb(.*?)\((.*?)\)/g, '').replace(/inset /g, '').replace(/ inset/g, '');
 
                         // shadow horizontal value.
 
-                        if ($n == 'box-shadow-horizontal') {
+                        if (id == 'box-shadow-horizontal') {
                             data = numbericBox.split(" ")[0];
-                            $num = yp_num(data);
+                            numberData = number_filter(data);
                         }
 
                         // shadow vertical value.
-                        if ($n == 'box-shadow-vertical') {
+                        if (id == 'box-shadow-vertical') {
                             data = numbericBox.split(" ")[1];
-                            $num = yp_num(data);
+                            numberData = number_filter(data);
                         }
 
                         // Shadow blur radius value.
-                        if ($n == 'box-shadow-blur-radius') {
+                        if (id == 'box-shadow-blur-radius') {
                             data = numbericBox.split(" ")[2];
-                            $num = yp_num(data);
+                            numberData = number_filter(data);
                         }
 
                         // Shadow spread value.
-                        if ($n == 'box-shadow-spread') {
+                        if (id == 'box-shadow-spread') {
                             data = numbericBox.split(" ")[3];
-                            $num = yp_num(data);
+                            numberData = number_filter(data);
                         }
 
                     }
 
                     // if no info about inset, default is no.
-                    if ($n == 'box-shadow-inset') {
+                    if (id == 'box-shadow-inset') {
 
-                        if (isUndefined(eventTarget.css("box-shadow"))) {
+                        if (isUndefined(data)) {
 
                             data = 'no';
 
                         } else {
 
-                            if (eventTarget.css("box-shadow").indexOf("inset") == -1) {
+                            if (data.indexOf("inset") == -1) {
                                 data = 'no';
                             } else {
                                 data = 'inset';
@@ -8925,94 +9717,68 @@
                     }
 
                     // box shadow notice
-                    if (eventTarget.css("box-shadow") != 'none' && eventTarget.css("box-shadow") != 'undefined' && eventTarget.css("box-shadow") != undefined && eventTarget.css("box-shadow") != '') {
+                    if (data != 'none' && data != 'undefined' && data !== undefined && data != '') {
                         $(".yp-has-box-shadow").show();
                     } else {
                         $(".yp-has-box-shadow").hide();
                     }
 
                     // Getting format: px, em, etc.
-                    var $format = yp_alfa(eventTarget.css($n)).replace("-", "");
+                    var $format = alfa_filter(the_element.css(id)).replace("-", "");
 
                     // option element.
-                    var the_id = $("#yp-" + $n);
+                    var the_option = $("#yp-" + id);
 
                     // option element parent of parent.
-                    var id_prt = the_id.parent().parent();
-
-                    // option element parent.
-                    var id_prtz = the_id.parent();
+                    var id_prt = the_option.parent().parent();
 
                     // if special CSS, get css by CSS data.
                     // ie for parallax. parallax not a css rule.
                     // yellow pencil using css engine for parallax Property.
-                    if (eventTarget.css($n) == undefined && iframe.find('.' + elementID + '-' + $n + '-style').length > 0) {
+                    if (the_element.css(id) === undefined && iframe.find('.' + elementID + '-' + id + '-style').length > 0) {
 
-                        data = iframe.find('.' + elementID + '-' + $n + '-style').html().split(":")[1].split('}')[0].replace(/;/g, '').replace(/!important/g, '');
-                        $num = yp_num(data);
+                        data = get_data_value(selector,id);
+                        numberData = number_filter(data);
 
-                    } else if (isUndefined(eventTarget.css($n))) { // if no data, use "disable" for default.
+                    } else if (isUndefined(the_element.css(id))) { // if no data, use "disable" for default.
 
-                        if ($n == 'background-parallax') {
+                        if (id == 'background-parallax') {
                             data = 'disable';
                         }
 
-                        if ($n == 'background-parallax-speed') {
+                        if (id == 'background-parallax-speed') {
                             data = 'disable';
                         }
 
-                        if ($n == 'background-parallax-x') {
+                        if (id == 'background-parallax-x') {
                             data = 'disable';
                         }
 
                     }
 
-                    var element = iframe.find(".yp-selected");
+                    var element = get_selected_element();
 
                     // IF THIS IS A SLIDER
-                    if (the_id.hasClass("wqNoUi-target")){
-
-                        // Border width Fix
-                        if ($n == 'border-width') {
-
-                            var element = iframe.find(".yp-selected");
-
-                            if (element.css("border-top-width") == element.css("border-bottom-width")) {
-
-                                if (element.css("border-left-width") == element.css("border-right-width")) {
-
-                                    if (element.css("border-top-width") == element.css("border-left-width")) {
-
-                                        $num = yp_num(element.css("border-top-width"));
-                                        $format = yp_alfa(element.css("border-top-width"));
-
-                                    }
-
-                                }
-
-                            }
-
-                        } // border width end.
-
+                    if (the_option.hasClass("wqNoUi-target")){
 
                         // if has multi duration
-                        if($n == 'animation-duration' && data.indexOf(",") != -1){
+                        if(id == 'animation-duration' && data.indexOf(",") != -1){
                             data = '1s'; // Reading as 1second
                             $format = 's';
-                            $num = '1';
+                            numberData = '1';
                             $("#animation-duration-group").addClass("hidden-option");
-                        }else if($n == 'animation-duration'){
+                        }else if(id == 'animation-duration'){
                             $("#animation-duration-group").removeClass("hidden-option");
                         }
 
 
                         // if has multi delay
-                        if($n == 'animation-delay' && data.indexOf(",") != -1){
+                        if(id == 'animation-delay' && data.indexOf(",") != -1){
                             data = '0s'; // Reading as 1second
                             $format = 's';
-                            $num = '0';
+                            numberData = '0';
                             $("#animation-delay-group").addClass("hidden-option");
-                        }else if($n == 'animation-delay'){
+                        }else if(id == 'animation-delay'){
                             $("#animation-delay-group").removeClass("hidden-option");
                         }
 
@@ -9032,7 +9798,7 @@
                         $format = $.trim($format);
 
                         // be sure format is valid.
-                        if ($format == '' || $format == 'px .px' || $format == 'px px') {
+                        if ($format === '' || $format == 'px .px' || $format == 'px px') {
                             $format = 'px';
                         }
 
@@ -9042,18 +9808,33 @@
                         }
 
                         // Default value is 1 for transform scale.
-                        if ($num == '' && $n == 'scale-transform') {
-                            $num = 1;
+                        if (numberData == '' && id == 'scale-transform') {
+                            numberData = 1;
+                        }
+
+                        // Default value is 1 for filter
+                        if (numberData == '' && id == 'brightness-filter') {
+                            numberData = 1;
+                        }
+
+                        // Default value is 1 for filter
+                        if (numberData == '' && id == 'contrast-filter') {
+                            numberData = 1;
+                        }
+
+                        // Default value is 1 for filter
+                        if (numberData == '' && id == 'saturate-filter') {
+                            numberData = 1;
                         }
 
                         // default value is 1 for opacity.
-                        if ($num == '' && $n == 'opacity') {
-                            $num = 1;
+                        if (numberData == '' && id == 'opacity') {
+                            numberData = 1;
                         }
 
                         // If no data, set zero value.
-                        if ($num == '') {
-                            $num = 0;
+                        if (numberData == '') {
+                            numberData = 0;
                         }
 
                         var range = id_prt.data("px-range").split(",");
@@ -9062,126 +9843,106 @@
                         var $max = parseInt(range[1]); // maximum value
 
                         // Check values.
-                        if ($num < $min) {
-                            $min = $num;
+                        if (numberData < $min) {
+                            $min = numberData;
                         }
 
-                        if ($num > $max) {
-                            $max = $num;
+                        if (numberData > $max) {
+                            $max = numberData;
                         }
 
                         // Speacial max and min limits for CSS size rules.
-                        if ($n == 'width' || $n == 'max-width' || $n == 'min-width' || $n == 'height' || $n == 'min-height' || $n == 'max-height') {
+                        if (id == 'width' || id == 'max-width' || id == 'min-width' || id == 'height' || id == 'min-height' || id == 'max-height') {
                             $max = parseInt($max) + (parseInt($max) * 1.5);
                             $min = parseInt($min) + (parseInt($min) * 1.5);
                         }
 
                         // if width is same with windows width, so set 100%!
                         // Note: browsers always return value in PX format.
-                        if (eventTarget.css("display") == 'block' || eventTarget.css("display") == 'inline-block') {
+                        if (the_element.css("display") == 'block' || the_element.css("display") == 'inline-block') {
 
-                            if ($n == 'width' && parseInt($(window).innerWidth()) == parseInt($num)) {
-                                $num = '100';
-                                $format = '%';
-                            }
+                            if (the_element.parent().length > 0) {
 
-                            if (eventTarget.parent().length > 0) {
+                                if($format == 'px' && element.parent().css("display") == 'block' && element.parent().css("float") == 'none'){
 
-                                if($format == 'px'){
+                                    var parentWidth = the_element.parent().width();
 
                                     // if  width is same with parent width, so set 100%!
-                                    if ($n == 'width' && parseInt(eventTarget.parent().innerWidth()) == parseInt($num) && $format == 'px') {
-                                        $num = '100';
+                                    if (id == 'width' && parentWidth == parseInt(numberData) && $format == 'px') {
+                                        numberData = '100';
                                         $format = '%';
                                     }
 
                                     // if  width is 50% of parent width, so set 50%!
-                                    if ($n == 'width' && parseInt(eventTarget.parent().innerWidth()) == (parseInt($num) * 2) && $format == 'px') {
-                                        $num = '50';
+                                    if (id == 'width' && parseInt(parentWidth/2) == (parseInt(numberData)) && $format == 'px') {
+                                        numberData = '50';
                                         $format = '%';
                                     }
 
                                     // if  width is 25% of parent width, so set 25%!
-                                    if ($n == 'width' && parseInt(eventTarget.parent().innerWidth()) == (parseInt($num) * 4) && $format == 'px') {
-                                        $num = '25';
+                                    if (id == 'width' && parseInt(parentWidth/4) == (parseInt(numberData)) && $format == 'px') {
+                                        numberData = '25';
                                         $format = '%';
                                     }
 
                                     // if  width is 20% of parent width, so set 20%!
-                                    if ($n == 'width' && parseInt(eventTarget.parent().innerWidth()) == (parseInt($num) * 5) && $format == 'px') {
-                                        $num = '20';
+                                    if (id == 'width' && parseInt(parentWidth/5) == (parseInt(numberData)) && $format == 'px') {
+                                        numberData = '20';
                                         $format = '%';
                                     }
 
                                 }
 
+                            }
+
+                            // if  height is 100% of window height!
+                            if (id == 'height' && parseInt($(window).height()) == parseInt(numberData) && $format == 'px') {
+                                numberData = '100';
+                                $format = 'vh';
                             }
 
                         }
 
                         // max and min for %.
                         if ($format == '%'){
-                            var range = $('#' + $n + '-group').attr("data-pcv").split(",");
+                            range = $('#' + id + '-group').attr("data-pcv").split(",");
                             $min = range[0];
                             $max = range[1];
                         }else if($format == 'em'){
-                            var range = $('#' + $n + '-group').attr("data-emv").split(",");
+                            range = $('#' + id + '-group').attr("data-emv").split(",");
                             $min = range[0];
                             $max = range[1];
                         }
 
-
-                        // border radius?
-                        if($n == 'border-top-left-radius' || $n == 'border-top-right-radius' ||$n == 'border-bottom-left-radius' || $n == 'border-bottom-right-radius'){
-
-                            var w = parseFloat(iframeBody.find(".yp-selected").outerWidth());
-
-                            if(numOrginal.split("px").length >= 3){
-                                $num = numOrginal.split("px")[0];
-                            }
-
-                            if(numOrginal.indexOf("%") == -1){
-                                $num = parseFloat(100*parseFloat($num)/w);
-                                $format = '%';
-                                if($num > 50){
-                                    $num = 50;
-                                }
-                            }
-
-                            $min = 0;
-                            $max = 50;
-
-                        }
-                        
                         // Raund
-                        $num = Math.round($num * 10) / 10;
+                        numberData = Math.floor(numberData * 100) / 100;
 
-                        the_id.wqNoUiSlider({
+                        the_option.wqNoUiSlider({
                             range: {
                                 'min': parseInt($min),
                                 'max': parseInt($max)
                             },
-                            start: parseFloat($num)
+                            start: parseFloat(numberData)
                         }, true);
 
                         // Set new value.
-                        the_id.val($num);
+                        the_option.val(numberData);
 
                         // Update the input.
-                        $('#' + $n + '-value').val($num);
+                        $('#' + id + '-value').val(numberData);
 
                         $format = $format.replace(/\./g,'');
 
                         // set format of value. px, em etc.
-                        $("#" + $n + "-after").val($format);
+                        $("#" + id + "-after").val($format);
 
                         return false;
 
                         // IF THIS IS A SELECT TAG
-                    } else if (the_id.hasClass("input-autocomplete")) {
+                    } else if (the_option.hasClass("input-autocomplete")) {
 
                         // Checking font family settings.
-                        if ($n == 'font-family' && typeof data != 'undefined') {
+                        if (id == 'font-family' && typeof data != 'undefined') {
 
                             if (data.indexOf(",") >= 0) {
 
@@ -9196,6 +9957,8 @@
                                     }
                                 });
 
+                            }else{
+                                data = $.trim(data.replace(/"/g, "").replace(/'/g, ""));
                             }
 
                         }
@@ -9203,19 +9966,19 @@
                         if (isDefined(data)) {
 
                             // Set CSS For this selected value. example: set font-family for this option.
-                            id_prt.find("#yp-" + $n).css($n, data);
+                            id_prt.find("#yp-" + id).css(id, data);
 
                             // Append default font family to body. only for select font family.
-                            if ($(".yp-font-test-" + yp_id_basic($.trim(data.replace(/ /g, '+')))).length == 0 && $n == 'font-family') {
+                            if ($(".yp-font-test-" + get_basic_id($.trim(data.replace(/ /g, '+')))).length === 0 && id == 'font-family') {
 
                                 // If safe font, stop.
-                                if (yp_safe_fonts(data) === false) {
+                                if (is_safe_font(data) === false) {
 
                                     // Be sure its google font.
-                                    if (yp_is_google_font(data)) {
+                                    if (is_google_font(data)) {
 
                                         // Append always to body.
-                                        body.append("<link rel='stylesheet' class='yp-font-test-" + yp_id_basic($.trim(data.replace(/ /g, '+'))) + "'  href='https://fonts.googleapis.com/css?family=" + $.trim(data.replace(/ /g, '+')) + ":300italic,300,400,400italic,500,500italic,600,600italic,700,700italic' type='text/css' media='all' />");
+                                        body.append("<link rel='stylesheet' class='yp-font-test-" + get_basic_id($.trim(data.replace(/ /g, '+'))) + "'  href='https://fonts.googleapis.com/css?family=" + $.trim(data.replace(/ /g, '+')) + ":300italic,300,400,400italic,500,500italic,600,600italic,700,700italic' type='text/css' media='all' />");
 
                                     }
 
@@ -9224,7 +9987,7 @@
                             }
 
                             // If have data, so set!
-                            if ($n == 'font-family' && data.indexOf(",") == -1) {
+                            if (id == 'font-family' && data.indexOf(",") == -1) {
 
                                 // Getting value
                                 var value = $("#yp-font-family-data option").filter(function() {
@@ -9232,34 +9995,34 @@
                                 }).first().attr("value");
 
                                 // Select by value.
-                                if (value != undefined) {
+                                if (value !== undefined) {
 
                                     value = value.toLowerCase().replace(/\b[a-z]/g, function(letter) {
                                         return letter.toUpperCase();
                                     });
 
-                                    the_id.val(value);
+                                    the_option.val(value);
                                 } else {
 
                                     data = data.toLowerCase().replace(/\b[a-z]/g, function(letter) {
                                         return letter.toUpperCase();
                                     });
 
-                                    the_id.val(data);
+                                    the_option.val(data);
                                 }
 
-                            } else if ($n == 'font-family' && data.indexOf(",") != -1) {
+                            } else if (id == 'font-family' && data.indexOf(",") != -1) {
 
-                                the_id.val(data);
+                                the_option.val(data);
 
                             } else {
 
                                 // set value.
-                                the_id.val(data);
+                                the_option.val(data);
 
                             }
 
-                            if ($n == 'font-family') {
+                            if (id == 'font-family') {
                                 $("#yp-font-family,#yp-font-weight").each(function() {
                                     $(this).css("font-family", data);
                                 });
@@ -9276,113 +10039,94 @@
                         }
 
                         // If not have this data in select options, insert this data.
-                        if (the_id.val() === null && data != id_prt.find(".yp-none-btn").text() && data !== undefined) {
-                            the_id.val(data);
+                        if (the_option.val() === null && data != id_prt.find(".yp-none-btn").text() && data !== undefined) {
+                            the_option.val(data);
                         }
 
                         return false;
 
                         // IF THIS IS A RADIO TAG
-                    } else if (the_id.hasClass("yp-radio-content")) {
-
-                        // Border style Fix
-                        if ($n == 'border-style' && data == '') {
-
-                            if (element.css("border-top-style") == element.css("border-bottom-style")) {
-
-                                if (element.css("border-left-style") == element.css("border-right-style")) {
-
-                                    if (element.css("border-top-style") == element.css("border-left-style")) {
-
-                                        data = element.css("border-top-style");
-
-                                    }
-
-                                }
-
-                            }
-
-                        }
+                    } else if (the_option.hasClass("yp-radio-content")) {
 
                         // Fix background size rule.
-                        if ($n == 'background-size') {
+                        if (id == 'background-size') {
                             if (data == 'auto' || data == '' || data == ' ' || data == 'auto auto') {
                                 data = 'auto auto';
                             }
                         }
 
                         // If disable, active disable button.
-                        if (data == 'disable' && $n != 'background-parallax') {
+                        if (data == 'disable' && id != 'background-parallax') {
                             id_prt.find(".yp-disable-btn").not(".active").trigger("click");
                         } else {
-                            yp_radio_value(the_id, $n, data); // else Set radio value.
+                            radio_value(the_option, id, data); // else Set radio value.
                         }
 
                         return false;
 
                         // IF THIS IS COLORPICKER
-                    } else if (the_id.hasClass("wqcolorpicker")) {
+                    } else if (the_option.hasClass("wqcolorpicker")) {
 
-                        // Border color Fix
-                        if ($n == 'border-color' && data == '') {
+                        // Remove active
+                        $(".yp-nice-c.active,.yp-flat-c.active,.yp-meterial-c.active").removeClass("active");
 
-                            if (element.css("border-top-color") == element.css("border-bottom-color")) {
-
-                                if (element.css("border-left-color") == element.css("border-right-color")) {
-
-                                    if (element.css("border-top-color") == element.css("border-left-color")) {
-
-                                        data = element.css("border-top-color");
-
-                                    }
-
-                                }
-
-                            }
-
-                        }
-
-                        if ($n == 'box-shadow-color') {
+                        if (id == 'box-shadow-color') {
                             if (data === undefined || data === false || data == 'none' || data == '') {
-                                data = eventTarget.css("color");
+                                data = the_element.css("color");
                             }
                         }
 
                         // Convert to rgb and set value.
+                        var rgbd;
                         if (isDefined(data)) {
                             if (data.indexOf("#") == -1) {
-                                var rgbd = yp_color_converter(data);
+                                rgbd = get_color(data);
                             }
                         }
 
                         // browsers return value always in rgb format.
-                        the_id.val(rgbd);
+                        the_option.val(rgbd);
+                        the_option.iris('color', data);
 
-                        the_id.iris('color', data);
+                        // If rgba
+                        var alpha = 100;
+                        if(data.indexOf("rgba") != -1){
+                            alpha = $.trim(data.replace(/^.*,(.+)\)/,'$1'));
+                            if(alpha.indexOf(".") != -1){
+                                alpha = alpha.replace("000.","").replace("00.","").replace("0.","").replace(".","");
+                                if(alpha.length == 1){
+                                    alpha = alpha.toString()+"0";
+                                }
+                                alpha = alpha.replace(/^0/, "");
+                            }
+                        }
+
+                        // Update iris alpha.
+                        id_prt.find(".cs-alpha-slider").slider('value',alpha); 
 
                         // Set current color on small area.
-                        the_id.parent().find(".wqminicolors-swatch-color").css("background-color", rgbd).css("background-image", "none");
+                        the_option.parent().find(".wqminicolors-swatch-color").css("background-color", rgbd).css("background-image", "none");
 
                         // If transparent
                         if (data == 'transparent' || data == '') {
                             id_prt.find(".yp-disable-btn.active").trigger("click");
                             id_prt.find(".yp-none-btn:not(.active)").trigger("click");
-                            the_id.parent().find(".wqminicolors-swatch-color").css("background-image", "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOwAAADsAQMAAABNHdhXAAAABlBMVEW/v7////+Zw/90AAAAUElEQVRYw+3RIQ4AIAwDwAbD/3+KRPKDGQQQbpUzbS6zF0lLeSffqYr3cXHzzd3PivHmzZs3b968efPmzZs3b968efPmzZs3b968efP+03sBF7TBCROHcrMAAAAASUVORK5CYII=)");
+                            the_option.parent().find(".wqminicolors-swatch-color").css("background-image", "url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOwAAADsAQMAAABNHdhXAAAABlBMVEW/v7////+Zw/90AAAAUElEQVRYw+3RIQ4AIAwDwAbD/3+KRPKDGQQQbpUzbS6zF0lLeSffqYr3cXHzzd3PivHmzZs3b968efPmzZs3b968efPmzZs3b968efP+03sBF7TBCROHcrMAAAAASUVORK5CYII=)");
                         } else {
                             id_prt.find(".yp-none-btn.active").trigger("click");
                         }
 
-                        if ($n == 'box-shadow-color') {
+                        if (id == 'box-shadow-color') {
                             $("#box-shadow-color-group .wqminicolors-swatch-color").css("background-color", data);
                         }
 
                         return false;
 
                         // IF THIS IS INPUT OR TEXTAREA
-                    } else if (the_id.hasClass("yp-input") === true || the_id.hasClass("yp-textarea")) {
+                    } else if (the_option.hasClass(("yp-input")) || the_option.hasClass("yp-textarea")) {
 
                         // clean URL() prefix for background image.
-                        if (typeof data != 'undefined' && data != 'disable' && $n == "background-image" && data != window.location.href) {
+                        if (typeof data != 'undefined' && data != 'disable' && id == "background-image" && data != window.location.href) {
 
                             // If background-image is empty.
                             var a = $(document).find("#iframe").attr("src");
@@ -9391,10 +10135,10 @@
                                 data = '';
                             }
 
-                            the_id.val(data.replace(/"/g, "").replace(/'/g, "").replace(/url\(/g, "").replace(/\)/g, ""));
+                            the_option.val(data.replace(/"/g, "").replace(/'/g, "").replace(/url\(/g, "").replace(/\)/g, ""));
 
-                            if (data.indexOf("yellow-pencil") > -1) {
-                                $(".yp_bg_assets").removeClass("active");
+                            $(".yp_bg_assets").removeClass("active");
+                            if (data.indexOf("yellow-pencil") != -1) {
                                 $(".yp_bg_assets[data-url='" + data.replace(/"/g, "").replace(/'/g, "").replace(/url\(/g, "").replace(/\)/g, "") + "']").addClass("active");
                             } else {
                                 $(".yp-background-image-show").remove();
@@ -9410,18 +10154,18 @@
 
                         // If no data, active none button.
                         if (data == 'none') {
-                            id_prtz.find(".yp-none-btn").not(".active").trigger("click");
-                            the_id.val(''); // clean value.
+                            id_prt.find(".yp-none-btn").not(".active").trigger("click");
+                            the_option.val(''); // clean value.
                         } else {
-                            id_prtz.find(".yp-none-btn.active").trigger("click"); // else disable.
+                            id_prt.find(".yp-none-btn.active").trigger("click"); // else disable.
                         }
 
                         // If no data, active disable button.
                         if (data == 'disable') {
-                            id_prtz.find(".yp-disable-btn").not(".active").trigger("click");
-                            the_id.val('');
+                            id_prt.find(".yp-disable-btn").not(".active").trigger("click");
+                            the_option.val('');
                         } else {
-                            id_prtz.find(".yp-disable-btn.active").trigger("click"); // else disable.
+                            id_prt.find(".yp-disable-btn.active").trigger("click"); // else disable.
                         }
 
                         return false;
@@ -9432,7 +10176,7 @@
 
             }
 
-            function yp_is_google_font(font) {
+            function is_google_font(font) {
 
                 var status = false;
                 $('select#yp-font-family-data option').each(function() {
@@ -9446,8 +10190,26 @@
 
             }
 
-            // Convert selector to array
-            function yp_selector_to_array(selector){
+
+            // Desktop | (max-width:980px) etc.
+            function get_current_media_query(){
+
+                if(!body.hasClass("yp-responsive-device-mode")){
+                    return 'desktop';
+                }else{
+                    var w = $("#iframe").width();
+                    var format = $(".media-control").attr("data-code");
+                    return '(' + format + ':' + w + 'px)';
+                }
+                
+            }
+
+
+
+            /* ---------------------------------------------------- */
+            /* Converting selectors to Array                        */
+            /* ---------------------------------------------------- */
+            function get_selector_array(selector){
 
                 var selectorArray = [];
 
@@ -9498,8 +10260,10 @@
             }
 
 
-            // Convert classes to array
-            function yp_classes_to_array(classes){
+            /* ---------------------------------------------------- */
+            /* Converting Classes to Array                          */
+            /* ---------------------------------------------------- */
+            function get_classes_array(classes){
 
                 var classesArray = [];
 
@@ -9534,6 +10298,10 @@
 
             }
 
+
+            /* ---------------------------------------------------- */
+            /* Find Nice Classes                                    */
+            /* ---------------------------------------------------- */
             var filterGoodClasses = [
                 'current-menu-item',
                 'active',
@@ -9555,6 +10323,10 @@
                 'product'
             ];
 
+
+            /* ---------------------------------------------------- */
+            /* Filtering Bad Classes                                */
+            /* ---------------------------------------------------- */
             var filterBadClassesBasic = [
 
                 // ETC
@@ -9699,10 +10471,15 @@
                 '([a-zA-Z0-9_-]+)?product_tag([a-zA-Z0-9_-]+)?',
                 '([a-zA-Z0-9_-]+)?product_cat([a-zA-Z0-9_-]+)?',
                 'shipping-taxable',
-                'product-type-([a-zA-Z0-9_-]+)?'
+                'product-type-([a-zA-Z0-9_-]+)?',
+
 
             ];
 
+
+            /* ---------------------------------------------------- */
+            /* Filtering Classes                                    */
+            /* ---------------------------------------------------- */
             var filterBadClassesPlus = [
 
                 // Don't care post formats
@@ -9720,6 +10497,10 @@
 
             ];
             
+
+            /* ---------------------------------------------------- */
+            /* Filtering Classes                                    */
+            /* ---------------------------------------------------- */
             var filterSomeClasses = [
 
                 // WordPress Dynamic Classes
@@ -9865,19 +10646,6 @@
             ];
 
 
-            // Desktop | (max-width:980px) etc.
-            function yp_get_current_media_query(){
-
-                if(!body.hasClass("yp-responsive-device-mode")){
-                    return 'desktop';
-                }else{
-                    var w = $("#iframe").width();
-                    var format = $(".media-control").attr("data-code");
-                    return '(' + format + ':' + w + 'px)';
-                }
-                
-            }
-
 
             /* ---------------------------------------------------- */
             /* Get Best Class Name                                  */
@@ -9889,7 +10657,7 @@
 
                   If no class, using ID else using tag name.
              */
-            function yp_get_best_class($element){
+            function get_best_class($element){
 
                 // Cache
                 var element = $($element);
@@ -9898,8 +10666,8 @@
                 var classes = element.attr("class");
 
                 // Clean Yellow Pencil Classes
-                if (classes != undefined && classes !== null) {
-                    classes = yp_classes_clean(classes);
+                if (classes !== undefined && classes !== null) {
+                    classes = class_cleaner(classes);
                 }
 
                 // Cache id and tagname.
@@ -9917,7 +10685,7 @@
 
                 // Use tag name with class.
                 var ClassNameTag = '';
-                if (tag != 'div' && tag != undefined && tag !== null) {
+                if (tag != 'div' && tag !== undefined && tag !== null) {
                     ClassNameTag = tag;
                 }
 
@@ -9927,7 +10695,7 @@
                     id = $.trim(id);
 
                     // If has "widget" term in classes, its is a widget element. dont select with the ID.
-                    if (classes != undefined && classes !== null) {
+                    if (classes !== undefined && classes !== null) {
                         if(classes.toString().match(/\b([a-zA-Z0-9_-]{1})?widget\b|\b([a-zA-Z0-9_-]{3})?widget\b|\b([a-zA-Z0-9_-]{4})?widget\b|\b([a-zA-Z0-9_-]{5})?widget\b|\b([a-zA-Z0-9_-]{6})?widget\b/g)){
                             id = '';
                         }
@@ -9956,10 +10724,10 @@
                 }
 
                 // If has classes.
-                if (classes != undefined && classes !== null) {
+                if (classes !== undefined && classes !== null) {
 
                     // Classes to array.
-                    var ArrayClasses = yp_classes_to_array(classes);
+                    var ArrayClasses = get_classes_array(classes);
 
                     // Foreach classes.
                     // If has normal classes and nunmmeric classes,
@@ -9994,7 +10762,7 @@
                 if ($.trim(best_classes) != '') {
 
                     // Make as array.
-                    the_best = yp_classes_to_array(best_classes);
+                    the_best = get_classes_array(best_classes);
 
                     // Replace significant classes and keep best classes.
                     var significant_classes = $.trim(best_classes.replace(/\-/g,'W06lXW'));
@@ -10022,7 +10790,7 @@
                         if(filterGoodClasses.indexOf(the_best[i]) != -1){
 
                             // Don't focus to current and active classes on single selector tool.
-                            if (body.hasClass("yp-sharp-selector-mode-active") === true) {
+                            if (body.hasClass(("yp-sharp-selector-mode-active"))) {
                                 if (the_best[i] != 'current' && the_best[i] != 'active') {
                                     return_the_best = the_best[i];
                                 }
@@ -10090,7 +10858,7 @@
                         }
 
                         // Use article for this tag.
-                        if (tag == 'article' && element.hasClass("comment") === true) {
+                        if (tag == 'article' && element.hasClass(("comment"))) {
                             tagFounded = true;
                             the_best = tag;
                         }
@@ -10120,7 +10888,7 @@
                     }
 
                     if(typeof the_best == 'string'){
-                        the_best = yp_classes_to_array(the_best);
+                        the_best = get_classes_array(the_best);
                     }
 
 
@@ -10133,7 +10901,7 @@
                     } else if (significant_classes != '' && tagFounded === false){
 
                         // Convert to array.
-                        significant_classes = yp_classes_to_array(significant_classes);
+                        significant_classes = get_classes_array(significant_classes);
 
                         var matchlessFounded = false;
 
@@ -10147,7 +10915,7 @@
                             if(iframeBody.find("."+matchlessClasses[0]).length == 1){
                                 the_best = '.' + matchlessClasses[0];
                                 matchlessFounded = true;
-                            }else if(matchlessClasses[1] != undefined){
+                            }else if(matchlessClasses[1] !== undefined){
                                 if(iframeBody.find("."+matchlessClasses[0]+"."+matchlessClasses[1]).length == 1){
                                     the_best = '.' + matchlessClasses[0] + '.' + matchlessClasses[1];
                                     matchlessFounded = true;
@@ -10228,31 +10996,194 @@
 
             }
 
+
             /* ---------------------------------------------------- */
             /* Get All Current Parents                              */
             /* ---------------------------------------------------- */
-            function yp_get_current_selector(){
+            function get_current_selector(){
 
                 var parentsv = body.attr("data-clickable-select");
 
                 if (isDefined(parentsv)) {
                     return parentsv;
                 } else {
-                    yp_get_parents(iframe.find(".yp-selected"), "default");
+                    get_parents(null, "default");
                 }
 
             }
 
-            // A simple trim function
-            function yp_left_trim(str, chr) {
-                var rgxtrim = (!chr) ? new RegExp('^\\s+') : new RegExp('^' + chr + '+');
-                return str.replace(rgxtrim, '');
+
+            function filter_bad_quies(data){
+                return  data.replace(/[\u2018\u2019\u201A\u201B\u2032\u2035\u201C\u201D]/g,'');
             }
+
+
+            /* ---------------------------------------------------- */
+            /* Getting minimized CSS. Cleaning spaces.              */
+            /* ---------------------------------------------------- */
+            function get_minimized_css(data,media){
+
+                // Clean.
+                data = data.replace(/(\r\n|\n|\r)/g, "").replace(/\t/g, '');
+
+                // Don't care rules in comment.
+                data = data.replace(/\/\*(.*?)\*\//g, "");
+
+                // clean.
+                data = data.replace(/\}\s+\}/g, '}}').replace(/\s+\{/g, '{');
+
+                // clean.
+                data = data.replace(/\s+\}/g, '}').replace(/\{\s+/g, '{');
+                data = filter_bad_quies(data);
+
+                // Don't care rules in media query
+                if(media === true){
+                    data = data.replace(/@media(.*?)\}\}/g, '').replace(/@?([a-zA-Z0-9_-]+)?keyframes(.*?)\}\}/g, '').replace(/@font-face(.*?)\}\}/g, '').replace(/@import(.*?)\;/g,'').replace(/@charset(.*?)\;/g,'');
+                }
+
+                // data
+                return data;
+
+            }
+
+
+            // Get human selector controller.
+            window.humanSelectorArray = [];
+            window.humanSelectorArrayEnd = false;
+
+            /* ---------------------------------------------------- */
+            /* Get Human Selectors                                  */
+            /* ---------------------------------------------------- */
+            function get_human_selector(data){
+
+                var allSelectors,i;
+
+                // Don't search it always
+                if(window.humanSelectorArray.length === 0){
+
+                    // Getting minimized data.
+                    data = get_minimized_css(data,true);
+
+                    // if no data, stop.
+                    if(data == ''){
+                        return false;
+                    }
+
+                    data = data.toString().replace(/\}\,/g, "}");
+
+                    // Getting All CSS Selectors.
+                    allSelectors = array_cleaner(data.replace(/\{(.*?)\}/g, '|BREAK|').split("|BREAK|"));
+
+                }
+
+                // Vars
+                var foundedSelectors = [];
+                var selector;
+
+                // get cached selector Array
+                if(window.humanSelectorArrayEnd){
+                    allSelectors = window.humanSelectorArray;
+                }
+
+                if(isUndefined(allSelectors)){
+                    return false;
+                }
+
+                // Each All Selectors
+                for (i = 0; i < allSelectors.length; i++){
+
+                    // Get Selector.
+                    selector = space_cleaner(allSelectors[i]);
+                    selector = space_cleaner(selector.replace("{",'').replace("}",''));
+
+                    // YP not like so advanced selectors.
+                    if(selector.indexOf(",") != -1 || selector.indexOf(":") != -1 || selector.indexOf("*") != -1 || selector.indexOf("/") != -1){
+                        continue;
+                    }
+
+                    // Not basic html tag selectors.
+                    if(selector.indexOf("#") == -1 && selector.indexOf(".") == -1){
+                        continue;
+                    }
+
+                    // min two
+                    if(get_selector_array(selector).length < 2){
+                        continue;
+                    }
+
+                    // Check if selector valid
+                    if(iframeBody.find(selector).length > 0){
+
+                        // Cache other selectors.
+                        if(window.humanSelectorArrayEnd === false){
+                            window.humanSelectorArray.push(selector);
+                        }
+
+                        // Founded Selector
+                        if(iframeBody.find(selector).hasClass("yp-selected")){
+                            foundedSelectors.push(selector);
+                        }
+
+                    }
+
+                }
+
+                // Don't read again css files. cache all human CSS selectors.
+                window.humanSelectorArrayEnd = true;
+
+                // New selectors
+                var foundedNewSelectors = [];
+
+                // Each all founded selectors.
+                // Don't use if has non useful classes as format-link etc.
+                for(i = 0; i < foundedSelectors.length; i++){
+
+                    var selectorBefore = foundedSelectors[i].replace(/\-/g,'W06lXW');
+                    var passedClasses = true;
+
+                    // Check if has an useful class
+                    $.each((filterBadClassesBasic),function(x,v){
+
+                        v = v.replace(/\-/g,'W06lXW').replace(/0W06lXW9/g,'0-9').replace(/\(\w\+\)/g,'\(\\w\+\)').replace(/aW06lXWzAW06lXWZ0-9_W06lXW/g,'a-zA-Z0-9_-').toString();
+                        var re = new RegExp("\\b"+v+"\\b","g");
+
+                        // Founded an non useful class.
+                        if(selectorBefore.match(re) !== null){
+                            passedClasses = false;
+                        }
+
+                    });
+
+                    // Check if has bad class
+                    $.each((filterBadClassesPlus),function(x,v){
+
+                        v = v.replace(/\-/g,'W06lXW').replace(/0W06lXW9/g,'0-9').replace(/\(\w\+\)/g,'\(\\w\+\)').replace(/aW06lXWzAW06lXWZ0-9_W06lXW/g,'a-zA-Z0-9_-').toString();
+                        var re = new RegExp("\\b"+v+"\\b","g");
+
+                        // Founded an bad class.
+                        if(selectorBefore.match(re) !== null){
+                            passedClasses = false;
+                        }
+
+                    });
+
+                    // Successful.
+                    if(passedClasses === true){
+                        foundedNewSelectors.push(foundedSelectors[i]);
+                    }
+
+                }
+
+                return foundedNewSelectors;
+
+            }
+
+
 
             /* ---------------------------------------------------- */
             /* Get All Parents                                      */
             /* ---------------------------------------------------- */
-            function yp_get_parents(a, status){
+            function get_parents(element, status){
 
                 // If parent already has.
                 var parentsv = body.attr("data-clickable-select");
@@ -10264,33 +11195,46 @@
                     }
                 }
 
+                if(element === null){
+                    element = get_selected_element();
+                }
+
                 // Be sure this item is valid.
-                if (a[0] === undefined || a[0] === false || a[0] === null) {
+                if (element[0] === undefined || element[0] === false || element[0] === null) {
                     return false;
                 }
 
-                if(status == 'default' && a.hasAttr("data-default-selector") === true && $("body").hasClass("yp-sharp-selector-mode-active") === false){
-                    return a.attr("data-default-selector");
+
+                // Is sharp?
+                if($("body").hasClass("yp-sharp-selector-mode-active")){
+                    status = 'sharp';
                 }
 
-                var tagE = a[0].tagName;
+                // Get cached selector
+                if(status == 'default' && element.hasAttr("data-default-selector") === true){
+                    return element.attr("data-default-selector");
+                }
 
+                // Tag info
+                var tagE = element[0].tagName;
+
+                // ?
                 if(isUndefined(tagE)){
                     return false;
                 }
 
                 // If body, return.
-                if (tagE.toLowerCase() == 'body') {
+                if (tagE == 'BODY') {
                     return 'body';
                 }
 
-                // If body, return.
-                if (tagE.toLowerCase() == 'html') {
+                // Not possible.
+                if (tagE == 'HTML') {
                     return false;
                 }
 
                 // Getting item parents.
-                var parents = a.parents(document);
+                var parents = element.parents(document);
 
                 // Empy variable.
                 var selector = '';
@@ -10302,23 +11246,23 @@
                     // If first Selector Item
                     if (i == parents.length - 1) {
 
-                        selector += yp_get_best_class(parents[i]);
+                        selector += get_best_class(parents[i]);
 
                     } else { // If not.
 
                         // Get Selector name.
-                        var thisSelector = yp_get_best_class(parents[i]);
+                        var thisSelector = get_best_class(parents[i]);
 
                         // Check if this Class.
                         // Reset past selector names if current selector already one in document.
                         if (thisSelector.indexOf(".") != -1 && iframe.find(thisSelector).length == 1){
 
-                            if (status != 'sharp' && body.hasClass("yp-sharp-selector-mode-active") === false) {
+                            if (status != 'sharp') {
                                 selector = thisSelector + window.separator; // Reset
                             }
 
-                            if (status == 'sharp' || body.hasClass("yp-sharp-selector-mode-active") === true) {
-                                if (yp_single_selector(selector).indexOf(" > ") == -1) {
+                            if (status == 'sharp') {
+                                if (single_selector(selector).indexOf("nth-child") == -1) {
                                     selector = thisSelector + window.separator; // Reset
                                 }
                             }
@@ -10335,22 +11279,42 @@
 
 
                 // Clean selector.
-                selector = $.trim(selector);
+                selector = space_cleaner(selector);
 
-                if (status == 'sharp' || body.hasClass("yp-sharp-selector-mode-active") === true) {
-                    selector = yp_left_trim(selector, "htmlbody ");
-                    selector = yp_left_trim(selector, "html ");
-                    selector = yp_left_trim(selector, "body ");
-                }
 
-                // Adding Last Element selector.
-                if (tagE == 'INPUT') { // if input,use tag name.
-                    var type = a.attr("type");
-                    lastSelector = window.separator + 'input[type=' + type + ']';
+                // Adding Last element to selector.
+                // and check custom last element part for input tags.
+                if (tagE == 'INPUT'){ // if input,use tag name with TYPE.
+
+                    var type;
+
+                    if (status != 'sharp') {
+
+                        type = element.attr("type");
+                        lastSelector = window.separator + 'input[type=' + type + ']';
+
+                    }else{
+
+                        var sharpLast = get_best_class(element);
+
+                        if(sharpLast.indexOf("input#") != -1){
+                            sharpLast = sharpLast.replace("input#","#");
+                        }
+
+                        type = element.attr("type");
+
+                        lastSelector = window.separator + 'input[type=' + type + ']' + sharpLast;
+
+                    }
+
+
                 }else{ // else find the best class.
-                    lastSelector = window.separator + yp_get_best_class(a);
+
+                    lastSelector = window.separator + get_best_class(element);
+
                 }
 
+                // Selectors ready!
                 selector += lastSelector;
 
                 // Fix google map contents
@@ -10361,20 +11325,18 @@
                 // Selector clean.
                 selector = selector.replace("htmlbody", "body");
 
-                if (body.hasClass("yp-sharp-selector-mode-active") === true) {
-                    return yp_single_selector(selector);
+                // Return if is single selector
+                if (status == 'sharp') {
+                    return single_selector(selector);
                 }
 
-                if (status == 'sharp') {
-                    return $.trim(selector);
-                }
 
                 if (selector.indexOf("#") >= 0 && selector.indexOf("yp-") == -1) {
                     var before = selector.split("#")[0];
-                    if (yp_selector_to_array(before).length == 0) {
+                    if (get_selector_array(before).length === 0) {
                         before = before;
                     } else {
-                        before = yp_selector_to_array(before)[yp_selector_to_array(before).length - 1];
+                        before = get_selector_array(before)[get_selector_array(before).length - 1];
                     }
                     selector = selector.split("#");
                     selector = selector[(selector.length - 1)];
@@ -10385,25 +11347,22 @@
                     }
                 }
 
+
                 // NEW
-                if (selector != undefined) {
+                var array = get_selector_array(selector);
 
-                    var array = yp_selector_to_array(selector);
+                var q = 0;
+                for (q = 0; q < array.length - 2; q++) {
 
-                    var q = 0;
-                    for (q = 0; q < array.length - 2; q++) {
-
-                        if (a.parents(array[q]).length == 1) {
-                            delete array[q + 1];
-                        }
-
+                    if (element.parents(array[q]).length == 1) {
+                        delete array[q + 1];
                     }
 
-                    var selectorNew = $.trim(array.join(window.separator)).replace(/  /g, ' ');
-                    if (iframe.find(selector).length == iframe.find(selectorNew).length) {
+                }
+
+                var selectorNew = $.trim(array.join(window.separator)).replace(/  /g, ' ');
+                if (iframe.find(selector).length == iframe.find(selectorNew).length) {
                         selector = selectorNew;
-                    }
-
                 }
 
                 
@@ -10425,14 +11384,14 @@
 
 
                 // Use > If has same selectored element in selected element
-                if (body.hasClass("yp-sharp-selector-mode-active") === false && status == 'default') {
+                if (status == 'default') {
 
                     var selectedInSelected = iframeBody.find(selector+window.separator+lastSelector).length;
 
                     // USE : ">"
                     if(selectedInSelected > 0){
 
-                        var untilLast = yp_get_parents(a.parent(),"defaultS");
+                        var untilLast = get_parents(element.parent(),"defaultS");
 
                         selector = untilLast + " > " + lastSelector;
 
@@ -10443,10 +11402,10 @@
                 }
 
                 // Getting selectors by CSS files.
-                if(yp_selector_to_array(selector).length > 1){
+                if(get_selector_array(selector).length > 1){
 
                     // Get human selectors
-                    var humanSelectors = yp_get_human_selector(window.humanStyleData);
+                    var humanSelectors = get_human_selector(window.humanStyleData);
 
                     // Get valid human selectors
                     var goodHumanSelectors = [];
@@ -10459,19 +11418,28 @@
 
                             // Find the best in human selectors
                             if(iframe.find(humanSelectors[qx]).length == iframe.find(selector).length){
+
+                                // Push
                                 goodHumanSelectors.push(humanSelectors[qx]);
+
                             }
 
                         });
 
+                        // There is good selectors?
                         if(goodHumanSelectors.length > 0){
                             
+                            // Find max long selector
                             var maxSelector = goodHumanSelectors.sort(function(a, b) {
                                 return b.length - a.length;
                             });
 
+                            // Be sure more long than 10 char
                             if(maxSelector[0].length > 10){
+
+                                // Update
                                 selector = maxSelector[0];
+
                             }
 
                         }
@@ -10482,66 +11450,74 @@
 
 
                 // Keep selectors smart and short!
-                if($("body").hasClass("yp-sharp-selector-mode-active") === false){
-                    if(yp_selector_to_array(selector).length > 5){
+                if(get_selector_array(selector).length > 5){
 
-                        // short Selector Ready
-                        var shortSelectorReady = false;
+                    // short Selector Ready
+                    var shortSelectorReady = false;
 
-                        // Find a founded elements
-                        var foundedElements = iframe.find(selector).length;
+                    // Find a founded elements
+                    var foundedElements = iframe.find(selector).length;
 
-                        // Get array from selector.
-                        var shortSelector = yp_selector_to_array(selector);
+                    // Get array from selector.
+                    var shortSelector = get_selector_array(selector);
 
-                        // Each array items
-                        $.each(shortSelector,function(){
+                    // Each array items
+                    $.each(shortSelector,function(){
 
-                            if(shortSelectorReady === false){
+                        if(shortSelectorReady === false){
 
-                                // Shift
-                                shortSelector.shift();
+                            // Shift
+                            shortSelector.shift();
 
-                                // make it short
-                                var shortSelectorString = shortSelector.toString().replace(/\,/g," ");
+                            // make it short
+                            var shortSelectorString = shortSelector.toString().replace(/\,/g," ");
 
-                                // Search
-                                var foundedElShort =  iframe.find(shortSelectorString).length;
+                            // Search
+                            var foundedElShort =  iframe.find(shortSelectorString).length;
 
-                                // Shift until make it minimum 5 item
-                                if(shortSelector.length <= 5 && foundedElements == foundedElShort){
-                                    shortSelectorReady = true;
-                                    selector = shortSelectorString;
-                                }
-
+                            // Shift until make it minimum 5 item
+                            if(shortSelector.length <= 5 && foundedElements == foundedElShort){
+                                shortSelectorReady = true;
+                                selector = shortSelectorString;
                             }
 
-                        });
+                        }
 
-                    }
+                    });
+
                 }
 
-
                 // Save as cache
-                if(status == 'default' && $("body").hasClass("yp-sharp-selector-mode-active") === false){
-                    a.attr("data-default-selector",selector);
+                if(status == 'default'){
+                    element.attr("data-default-selector",space_cleaner(selector));
                 }
                 
                 // Return result.
-                return selector;
+                return space_cleaner(selector);
 
+            }
+
+
+
+
+            // A simple trim function
+            function left_trim(str, chr) {
+                var rgxtrim = (!chr) ? new RegExp('^\\s+') : new RegExp('^' + chr + '+');
+                return str.replace(rgxtrim, '');
             }
 
 
             /* ---------------------------------------------------- */
             /* Draw Tooltip and borders.                            */
             /* ---------------------------------------------------- */
-            function yp_draw_box(element, classes) {
+            function draw_box(element, classes) {
+
+                var element_p;
 
                 if (typeof $(element) === 'undefined') {
-                    var element_p = $(element);
+                    element_p = $(element);
                 } else {
-                    var element_p = iframe.find(element);
+                    element_p = iframe.find(element);
                 }
 
                 // Be sure this element have.
@@ -10569,12 +11545,12 @@
 
                     var bottomBoxes = topBoxes + heightBoxes;
 
-                    if (body.hasClass("yp-content-selected")) {
-                        var rightExtra = 2;
-                        var rightS = 2;
-                    } else {
-                        var rightExtra = 1;
-                        var rightS = 1;
+                    var rightExtra = 1;
+                    var rightS = 1;
+
+                    if (is_content_selected()) {
+                        rightExtra = 2;
+                        rightS = 2;
                     }
 
                     var rightBoxes = leftBoxes + widthBoxes - rightExtra;
@@ -10594,17 +11570,17 @@
                     if (heightBoxes > 1 && widthBoxes > 1) {
 
                         // Dynamic Box
-                        if (iframe.find("." + classes + "-top").length == 0) {
+                        if (iframe.find("." + classes + "-top").length === 0) {
                             iframeBody.append("<div class='" + classes + "-top'></div><div class='" + classes + "-bottom'></div><div class='" + classes + "-left'></div><div class='" + classes + "-right'></div>");
                         }
 
                         // Margin append     
-                        if (iframe.find("." + classes + "-margin-top").length == 0) {
+                        if (iframe.find("." + classes + "-margin-top").length === 0) {
                             iframeBody.append("<div class='" + classes + "-margin-top'></div><div class='" + classes + "-margin-bottom'></div><div class='" + classes + "-margin-left'></div><div class='" + classes + "-margin-right'></div>");
                         }
 
                         // Padding append.
-                        if (iframe.find("." + classes + "-padding-top").length == 0) {
+                        if (iframe.find("." + classes + "-padding-top").length === 0) {
                             iframeBody.append("<div class='" + classes + "-padding-top'></div><div class='" + classes + "-padding-bottom'></div><div class='" + classes + "-padding-left'></div><div class='" + classes + "-padding-right'></div>");
                         }
 
@@ -10627,7 +11603,7 @@
                         iframe.find("." + classes + "-margin-left").css("top", topBoxes).css("left", parseFloat(leftBoxes) - parseFloat(marginLeft)).css("height", heightBoxes).css("width", marginLeft);
 
                         // Right Margin
-                        iframe.find("." + classes + "-margin-right").css("top", topBoxes).css("left", rightBoxes).css("height", heightBoxes).css("width", marginRight);
+                        iframe.find("." + classes + "-margin-right").css("top", topBoxes).css("left", rightBoxes+2).css("height", heightBoxes).css("width", marginRight);
 
                         // Top Padding
                         iframe.find("." + classes + "-padding-top").css("top", parseFloat(topBoxes)).css("left", parseFloat(leftBoxes)).css("width", parseFloat(widthBoxes / 2)).css("height", paddingTop);
@@ -10641,8 +11617,9 @@
                         // Right Padding
                         iframe.find("." + classes + "-padding-right").css("top", topBoxes).css("left", rightBoxes - parseFloat(paddingRight)).css("height", heightBoxes / 2).css("width", paddingRight);
 
-                        iframe.find(".yp-selected-handle").css("left", iframe.find(".yp-selected-boxed-right").css("left"));
-                        iframe.find(".yp-selected-handle").css("top", iframe.find(".yp-selected-boxed-bottom").css("top"));
+                        if(is_resizing() == false && is_dragging() == false){
+                            iframe.find(".yp-selected-handle").css("left", leftBoxes).css("top", topBoxes);
+                        }
 
                     }
 
@@ -10651,7 +11628,7 @@
             }
 
             // From Alexandre Gomes Blog
-            function yp_get_scroll_bar_width() {
+            function get_scroll_bar_width() {
 
                 // no need on responsive mode.
                 if ($("body").hasClass("yp-responsive-device-mode")) {
@@ -10659,7 +11636,7 @@
                 }
 
                 // If no scrollbar, return zero.
-                if (iframe.height() <= $(window).height() && $("body").hasClass("yp-metric-disable") === true) {
+                if (iframe.height() <= $(window).height() && $("body").hasClass(("yp-metric-disable"))) {
                     return 0;
                 }
 
@@ -10686,14 +11663,47 @@
                 document.body.removeChild(outer);
 
                 return (w1 - w2);
-            };
+
+            }
+
+
+            // Remove multiple selected element
+            iframe.on("click", '.yp-selected-others', function() {
+
+                var el = $(this);
+
+                var currentSelector = get_current_selector();
+
+                if(body.hasClass("yp-control-key-down") && currentSelector.split(",").length > 0){
+
+                    // Remove YP Classes
+                    el.removeClass("yp-selected-others yp-recent-hover-element");
+
+                    // Get Selector
+                    var selector = get_parents(el,'sharp');
+
+                    currentSelector = currentSelector.replace(new RegExp(","+selector,"g"),"");
+
+                    var firstEl = get_selected_element();
+
+                    set_selector(currentSelector,firstEl);
+
+                    // return false to block other click function
+                    return false;
+
+                }
+
+            });
+
 
             /* ---------------------------------------------------- */
             /* Draw Tooltip and borders.                            */
             /* ---------------------------------------------------- */
-            function yp_draw_box_other(element, classes, $i) {
+            function draw_other_box(element, classes, $i) {
 
                 var element_p = $(element);
+
+                var elementClasses = element_p.attr("class");
 
                 if (element_p === null) {
                     return false;
@@ -10703,7 +11713,7 @@
                     return false;
                 }
 
-                if (element_p.length == 0) {
+                if (element_p.length === 0) {
                     return false;
                 }
 
@@ -10721,10 +11731,31 @@
                 if(body.hasClass("yp-has-transform")){
                     return false;
                 }
-                
+
+                // not draw new box and delete last.
+                if(isDefined(elementClasses)){
+
+                    elementClasses = elementClasses.replace(/yp-selected-others/g,'');
+
+                    if(elementClasses.match(/yp-selected/g) || elementClasses.match(/yp-tooltip-small/g) || elementClasses.match(/yp-edit-menu/g) || element_p.hasClass("yp-selected-others-box")){
+                        if(iframe.find("." + classes + "-" + $i + "-box").length > 0){
+                            iframe.find("." + classes + "-" + $i + "-box").remove();
+                        }
+
+                        return false;
+
+                    }
+
+                }
+                    
                 // Stop.
-                if (yp_check_with_parents(element_p, "transform", "none", "notequal") === true && yp_check_with_parents(element_p, "transform", "inherit", "notequal") === true && yp_check_with_parents(element_p, "transform", "", "notequal") === true) {
+                if (check_with_parents(element_p, "transform", "none", "!=") === true) {
                     element_p.addClass("yp-selected-has-transform");
+                    return false;
+                }
+
+                // Stop.
+                if (check_with_parents(element_p, "display", "none", "==") === true || check_with_parents(element_p, "opacity", "0", "==") === true || check_with_parents(element_p, "visibility", "hidden", "==") === true) {
                     return false;
                 }
 
@@ -10738,7 +11769,7 @@
                 if (heightBoxes > 1 && widthBoxes > 1) {
 
                     // Append Dynamic Box
-                    if (iframe.find("." + classes + "-" + $i + "-box").length == 0) {
+                    if (iframe.find("." + classes + "-" + $i + "-box").length === 0) {
                         iframeBody.append("<div class='" + classes + "-box " + classes + "-" + $i + "-box'></div>");
                     }
 
@@ -10752,7 +11783,7 @@
             /* ---------------------------------------------------- */
             /* Visible Height in scroll.                            */
             /* ---------------------------------------------------- */
-            function yp_visible_height(t) {
+            function get_visible_height(t) {
                 var top = t.offset().top;
                 var scrollTop = iframe.scrollTop();
                 var height = t.outerHeight();
@@ -10768,7 +11799,7 @@
             /* ---------------------------------------------------- */
             /* Draw Tooltip and borders.                            */
             /* ---------------------------------------------------- */
-            function yp_draw_tooltip() {
+            function draw_tooltip(){
 
                 if (iframe.find(".yp-selected-tooltip").length <= 0) {
                     return false;
@@ -10778,12 +11809,17 @@
                 var tooltipMenu = iframe.find(".yp-edit-menu");
 
                 // Hide until set position to tooltip if element still not selected.
-                if (!body.hasClass("yp-content-selected")) {
+                if (!is_content_selected()) {
                     tooltip.css("visibility", "hidden");
                     tooltipMenu.css("visibility", "hidden");
                 }
 
-                var element = iframe.find(".yp-selected");
+                var element = get_selected_element();
+
+                // If not visible stop.
+                if (check_with_parents(element, "display", "none", "==") === true || check_with_parents(element, "opacity", "0", "==") === true || check_with_parents(element, "visibility", "hidden", "==") === true) {
+                    return false;
+                }
 
                 var element_offset = element.offset();
 
@@ -10796,10 +11832,6 @@
                 var topElement = parseFloat(element_offset.top) - 24;
 
                 var leftElement = parseFloat(element_offset.left);
-
-                if (leftElement == 0) {
-                    leftElement = parseFloat(iframe.find(".yp-selected-boxed-top").offset().left);
-                }
 
                 tooltip.css("top", topElement).css("left", leftElement);
                 tooltipMenu.css("top", topElement).css("left", leftElement);
@@ -10827,18 +11859,19 @@
                 }
 
                 // If out of top, show.
+                var tooltipRatio;
                 if (topElement < 2 || topElement < (iframe.scrollTop() + 2)) {
 
                     var bottomBorder = iframe.find(".yp-selected-boxed-bottom");
 
-                    topElement = parseFloat(bottomBorder.css("top")) - parseFloat(yp_visible_height(element));
+                    topElement = parseFloat(bottomBorder.css("top")) - parseFloat(get_visible_height(element));
 
                     tooltip.css("top", topElement);
                     tooltipMenu.css("top", topElement);
 
                     tooltip.addClass("yp-fixed-tooltip");
 
-                    var tooltipRatio = (tooltip.outerHeight() * 100 / yp_visible_height(element));
+                    tooltipRatio = (tooltip.outerHeight() * 100 / get_visible_height(element));
 
                     if (tooltipRatio > 10) {
                         tooltip.addClass("yp-tooltip-bottom-outside");
@@ -10859,13 +11892,13 @@
                     tooltip.removeClass("yp-tooltip-bottom-outside");
                 }
 
-                if (tooltip.hasClass("yp-fixed-tooltip") === true && tooltip.hasClass("yp-tooltip-bottom-outside") === false) {
+                if (tooltip.hasClass(("yp-fixed-tooltip")) && tooltip.hasClass("yp-tooltip-bottom-outside") === false) {
                     tooltipMenu.addClass("yp-fixed-edit-menu");
                 } else {
                     tooltipMenu.removeClass("yp-fixed-edit-menu");
                 }
 
-                if (tooltip.hasClass("yp-tooltip-bottom-outside") === true) {
+                if (tooltip.hasClass(("yp-tooltip-bottom-outside"))) {
                     tooltipMenu.addClass("yp-bottom-outside-edit-menu");
                 } else {
                     tooltipMenu.removeClass("yp-bottom-outside-edit-menu");
@@ -10881,33 +11914,25 @@
                 tooltip.css({"visibility":"visible","pointer-events":"none"});
                 tooltipMenu.css({"visibility":"visible","pointer-events":"none"});
 
-                // Fix tooltip height problem.
-                setTimeout(function() {
+                    // If high
+                    if ($("#iframe").width() - (tooltip.width() + tooltip.offset().left + 80) <= 0) {
 
-                    // auto height.
-                    if (tooltip.css("visibility") != "hidden") {
+                        // simple tooltip.
+                        tooltip.addClass("yp-small-tooltip");
 
-                        // If high
-                        if (tooltip.height() > 24) {
+                    } else { // If not high
 
-                            // simple tooltip.
-                            tooltip.addClass("yp-small-tooltip");
+                        // if already simple tooltip
+                        if (tooltip.hasClass("yp-small-tooltip")) {
 
-                        } else { // If not high
+                            // return to default.
+                            tooltip.removeClass("yp-small-tooltip");
 
-                            // if already simple tooltip
-                            if (tooltip.hasClass("yp-small-tooltip")) {
+                            // check again if need to be simple
+                            if ($("#iframe").width() - (tooltip.width() + tooltip.offset().left + 80) <= 0) {
 
-                                // return to default.
-                                tooltip.removeClass("yp-small-tooltip");
-
-                                // check again if need to be simple
-                                if (tooltip.height() > 24) {
-
-                                    // make it simple.
-                                    tooltip.addClass("yp-small-tooltip");
-
-                                }
+                                // make it simple.
+                                tooltip.addClass("yp-small-tooltip");
 
                             }
 
@@ -10915,31 +11940,12 @@
 
                     }
 
-                    tooltip.css({"pointer-events":"auto"});
-                    tooltipMenu.css({"pointer-events":"auto"});
-
-                }, 2);
+                tooltip.css({"pointer-events":"auto"});
+                tooltipMenu.css({"pointer-events":"auto"});
 
             }
 
-            /* ---------------------------------------------------- */
-            /* fix select2 bug.                                     */
-            /* ---------------------------------------------------- */
-            $("html").click(function(e) {
 
-                if (e.target.nodeName == 'HTML' && $("body").hasClass("autocomplete-active") === false && $(".iris-picker:visible").length === 0) {
-                    yp_clean();
-                }
-
-                if ($("body").hasClass("autocomplete-active") === true && e.target.nodeName == 'HTML') {
-
-                    $(".input-autocomplete").each(function() {
-                        $(this).autocomplete("close");
-                    });
-
-                }
-
-            });
 
             // if mouseup on iframe, trigger for document.
             iframe.on("mouseup", iframe, function() {
@@ -10948,29 +11954,421 @@
 
             });
 
+
+            function set_draggable(element) {
+
+                // Add drag support
+                if (iframeBody.find(".yp-selected").length > 0) {
+
+                    element.draggable({
+
+                        containment: iframeBody,
+                        delay: 100,
+                        start: function(e, ui) {
+
+                            window.elDragWidth = element.outerWidth();
+                            window.elDragHeight = element.outerHeight();
+
+                            if (body.hasClass("yp-css-editor-active")) {
+                                $(".css-editor-btn").trigger("click");
+                            }
+
+                            if (!is_content_selected()) {
+                                return false;
+                            }
+
+                            // Close contextmenu
+                            if (iframe.find(".context-menu-active").length > 0) {
+                                get_selected_element().contextMenu("hide");
+                            }
+
+                            get_selected_element().removeClass("yp_onscreen yp_hover yp_click yp_focus");
+
+                            // Get Element Style attr.
+                            window.styleAttr = element.attr("style");
+
+                            // Add some classes
+                            body.addClass("yp-clean-look yp-dragging yp-hide-borders-now");
+
+                            // show position tooltip
+                            iframeBody.append("<div class='yp-helper-tooltip'></div>");
+
+                            create_smart_guides();
+
+                            // Delete important tag from old for let to drag elements. Top left right bottom..
+                            var corners = ['top','left','right','bottom'],ex;
+                            for(var i = 0; i < 4; i++){
+
+                                ex = iframe.find("[data-style='"+get_id(get_current_selector())+"'][data-rule='"+corners[i]+"']");
+
+                                if(ex.length > 0){
+                                    ex.html(ex.html().replace(/\s+?!important/g,'').replace(/\;$/g,''));
+                                }
+
+                            }
+
+
+                        },
+                        drag: function(event, ui) {
+
+                            if (window.elDragHeight != $(this).outerHeight()) {
+                                element.css("width", window.elDragWidth + 1);
+                                element.css("height", window.elDragHeight);
+                            }
+
+                            // Smart Guides. :-)
+
+                            // tolerance.
+                            var t = 6;
+
+                            // Defaults
+                            var c,f;
+
+                            // Variables
+                            var wLeft,wWidth,wTop,forceH,wHeight,forceW,otherTop,otherLeft,otherWidth,otherHeight,otherBottom,otherRight;
+
+                            // this
+                            var self = $(this);
+
+                            // This offets
+                            draw_box(".yp-selected", 'yp-selected-boxed');
+
+                            var selfRW = self.outerWidth();
+                            var selfTop = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-top").css("top")));
+                            var selfLeft = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-left").css("left")));
+                            var selfRight = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-right").css("left")));
+                            var selfBottom = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-bottom").css("top")));
+
+                            // sizes
+                            var selfWidth = selfRight - selfLeft;
+                            var selfHeight = selfBottom - selfTop;
+                            var selfPLeft = parseFloat(self.css("left"));
+                            var selfPTop = parseFloat(self.css("top"));
+
+                            // Margin
+                            var selfTopMargin = parseFloat(self.css("margin-top"));
+                            var selfLeftMargin = parseFloat(self.css("margin-left"));
+
+                            // Bottom
+                            var yBorder = iframeBody.find(".yp-y-distance-border");
+                            var xBorder = iframeBody.find(".yp-x-distance-border");
+
+                            xBorder.css("display", "none");
+                            yBorder.css("display", "none");
+
+
+                            // Search for:
+                            // top in top 
+                            // bottom in bottom
+                            // top in bottom
+                            // bottom in top
+                            var axsisxEl = iframeBody.find(".yp-smart-guide-elements[data-yp-bottom-round='" + yp_round(selfBottom) + "']");
+                            axsisxEl = axsisxEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-top-round='" + yp_round(selfTop) + "']"));
+                            axsisxEl = axsisxEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-top-round='" + yp_round(selfBottom) + "']"));
+                            axsisxEl = axsisxEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-bottom-round='" + yp_round(selfTop) + "']"));
+
+                            if (axsisxEl.length > 0) {
+
+                                // Getting sizes
+                                otherTop = parseFloat(axsisxEl.attr("data-yp-top"));
+                                otherLeft = parseFloat(axsisxEl.attr("data-yp-left"));
+                                otherWidth = parseFloat(axsisxEl.attr("data-yp-width"));
+                                otherHeight = parseFloat(axsisxEl.attr("data-yp-height"));
+                                otherBottom = parseFloat(otherTop + otherHeight);
+                                otherRight = parseFloat(otherLeft + otherWidth);
+
+                                // Calculate smart guides positions.
+                                if (selfLeft > otherLeft) {
+                                    wLeft = otherLeft;
+                                    wWidth = selfRight - otherLeft;
+                                } else {
+                                    wLeft = selfLeft;
+                                    wWidth = otherRight - selfLeft;
+                                }
+
+                                // TOP = TOP
+                                if (axsisxEl.attr("data-yp-top-round") == yp_round(selfTop)) {
+                                    wTop = otherTop;
+                                }
+
+                                // BOTTOM = BOTTOM
+                                if (axsisxEl.attr("data-yp-bottom-round") == yp_round(selfBottom)) {
+                                    wTop = otherBottom;
+                                }
+
+                                // BOTTOM = TOP
+                                if (axsisxEl.attr("data-yp-bottom-round") == yp_round(selfTop)) {
+                                    wTop = otherBottom;
+                                }
+
+                                // TOP = BOTTOM
+                                if (axsisxEl.attr("data-yp-top-round") == yp_round(selfBottom)) {
+                                    wTop = otherTop;
+                                }
+
+                                // controllers
+                                c = (ui.offset.top + selfTopMargin) - otherTop;
+
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherTop - selfTop) + selfPTop);
+                                    ui.position.top = f;
+                                    xBorder.css({'top': wTop,'left': wLeft,'width': wWidth,'display': 'block'});
+                                }
+
+                                c = (ui.offset.top + selfTopMargin) - otherBottom + selfHeight;
+
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherBottom - selfBottom) + selfPTop);
+                                    ui.position.top = f;
+                                    xBorder.css({'top': wTop,'left': wLeft,'width': wWidth,'display': 'block'});
+                                }
+
+                                c = (ui.offset.top + selfTopMargin) - otherTop + selfHeight;
+
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherTop - selfBottom) + selfPTop);
+                                    ui.position.top = f;
+                                    xBorder.css({'top': wTop,'left': wLeft,'width': wWidth,'display': 'block'});
+                                }
+
+                                c = (ui.offset.top + selfTopMargin) - otherBottom;
+
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherBottom - selfTop) + selfPTop);
+                                    ui.position.top = f;
+                                    xBorder.css({'top': wTop,'left': wLeft,'width': wWidth,'display': 'block'});
+                                }
+
+                            }
+
+
+                            // Search for:
+                            // left in left
+                            // right in right
+                            // left in right
+                            // right in left
+                            var axsisyEl = iframeBody.find(".yp-smart-guide-elements[data-yp-right-round='" + yp_round(selfRight) + "']");
+
+                            axsisyEl = axsisyEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-left-round='" + yp_round(selfLeft) + "']"));
+
+                            axsisyEl = axsisyEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-left-round='" + yp_round(selfRight) + "']"));
+
+                            axsisyEl = axsisyEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-right-round='" + yp_round(selfLeft) + "']"));
+
+                            if (axsisyEl.length > 0) {
+
+                                // Getting sizes
+                                otherTop = parseFloat(axsisyEl.attr("data-yp-top"));
+                                otherLeft = parseFloat(axsisyEl.attr("data-yp-left"));
+                                otherWidth = parseFloat(axsisyEl.attr("data-yp-width"));
+                                otherHeight = parseFloat(axsisyEl.attr("data-yp-height"));
+                                otherBottom = parseFloat(otherTop + otherHeight);
+                                otherRight = parseFloat(otherLeft + otherWidth);
+
+                                // Calculate smart guides positions.
+                                if (selfTop > otherTop) {
+                                    wTop = otherTop;
+                                    wHeight = selfBottom - otherTop;
+                                } else {
+                                    wTop = selfTop;
+                                    wHeight = otherBottom - selfTop;
+                                }
+
+                                // LEFT = LEFT
+                                if (axsisyEl.attr("data-yp-left-round") == yp_round(selfLeft)) {
+                                    wLeft = otherLeft;
+                                }
+
+                                // RIGHT = RIGHT
+                                if (axsisyEl.attr("data-yp-right-round") == yp_round(selfRight)) {
+                                    wLeft = otherRight;
+                                }
+
+                                // RIGHT = LEFT
+                                if (axsisyEl.attr("data-yp-right-round") == yp_round(selfLeft)) {
+                                    wLeft = otherRight;
+                                }
+
+                                // LEFT = RIGHT
+                                if (axsisyEl.attr("data-yp-left-round") == yp_round(selfRight)) {
+                                    wLeft = otherLeft;
+                                }
+
+                                // controller
+                                c = (ui.offset.left + selfLeftMargin) - otherLeft;
+
+                                // Sharpening
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherLeft - selfLeft) + selfPLeft);
+                                    ui.position.left = f;
+                                    yBorder.css({'top': wTop,'left': wLeft,'height': wHeight,'display': 'block'});
+                                }
+
+                                // controller
+                                c = (ui.offset.left + selfLeftMargin) - otherRight;
+
+                                // Sharpening
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherRight - selfLeft) + selfPLeft);
+                                    ui.position.left = f;
+                                    yBorder.css({'top': wTop,'left': wLeft,'height': wHeight,'display': 'block'});
+                                }
+
+                                // controller
+                                c = (ui.offset.left + selfLeftMargin) - otherRight + selfWidth;
+
+                                // Sharpening
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherRight - selfRight) + selfPLeft);
+                                    ui.position.left = f;
+                                    yBorder.css({'top': wTop,'left': wLeft,'height': wHeight,'display': 'block'});
+                                }
+
+                                // controller
+                                c = Math.round((ui.offset.left + selfLeftMargin) - otherLeft + selfRW);
+
+                                // Sharpening
+                                if (c < t && c > -Math.abs(t)) {
+                                    f = Math.round((otherLeft - selfRight) + selfPLeft - (selfRW - selfWidth));
+                                    ui.position.left = f;
+                                    yBorder.css({'top': wTop,'left': wLeft,'height': wHeight,'display': 'block'});
+                                }
+
+                            }
+
+
+                            if (ui.position.top == 1 || ui.position.top == -1 || ui.position.top == 2 || ui.position.top == -2) {
+                                ui.position.top = 0;
+                            }
+
+                            if (ui.position.left == 1 || ui.position.left == -1 || ui.position.left == 2 || ui.position.left == -2) {
+                                ui.position.left = 0;
+                            }
+
+                            // Update helper tooltip
+                            if (selfTop >= 60) {
+                                iframeBody.find(".yp-helper-tooltip").css({
+                                    'top': selfTop,
+                                    'left': selfLeft
+                                }).html("X : " + parseInt(ui.position.left) + " px<br>Y : " + parseInt(ui.position.top) + " px");
+                            } else {
+                                iframeBody.find(".yp-helper-tooltip").css({
+                                    'top': selfTop + selfHeight + 40 + 10,
+                                    'left': selfLeft
+                                }).html("X : " + parseInt(ui.position.left) + " px<br>Y : " + parseInt(ui.position.top) + " px");
+                            }
+
+                        },
+                        stop: function() {
+
+                            clean_smart_guides();
+
+                            window.styleData = 'relative';
+
+                            var delay = 1;
+
+                            // CSS To Data.
+                            if (body.hasClass(("yp-need-to-process"))) {
+                                process(false, false);
+                                delay = 70;
+                            }
+
+                            // Draw tooltip qiuckly
+                            draw_tooltip();
+
+                            // Wait for process.
+                            setTimeout(function() {
+
+                                var t = element.css("top");
+                                var l = element.css("left");
+                                var b = element.css("bottom");
+                                var r = element.css("right");
+
+
+                                // Back To Orginal Style Attr.
+                                if (isDefined(window.styleAttr)) {
+
+                                    var trimAtr = window.styleAttr.replace(/position:(\s*?)relative(\;?)/g,"");
+
+                                    if (trimAtr == '') {
+                                        element.removeAttr("style");
+                                    } else {
+                                        element.attr("style", trimAtr);
+                                    }
+
+                                } else {
+                                    element.removeAttr("style");
+                                }
+
+
+                                // Insert new data.
+                                insert_rule(null, "top", t, '');
+                                insert_rule(null, "left", l, '');
+
+                                if (parseFloat(t) + parseFloat(b) !== 0) {
+                                    insert_rule(null, "bottom", "auto", '');
+                                }
+
+                                if (parseFloat(l) + parseFloat(r) !== 0) {
+                                    insert_rule(null, "right", "auto", '');
+                                }
+
+                                // Adding styles
+                                if (element.css("position") == 'static') {
+                                    insert_rule(null, "position", "relative", '');
+                                }
+
+                                if ($("#position-static").parent().hasClass("active") || $("#position-relative").parent().hasClass("active")) {
+                                    $("#position-relative").trigger("click");
+                                }
+
+                                // Set default values for top and left options.
+                                if ($("li.position-option.active").length > 0) {
+                                    $("#top-group,#left-group").each(function() {
+                                        set_default_value(get_option_id(this));
+                                    });
+                                } else {
+                                    $("li.position-option").removeAttr("data-loaded"); // delete cached data.
+                                }
+
+                                // Remove
+                                iframe.find(".yp-selected,.yp-selected-others").removeClass("ui-draggable-handle ui-draggable-handle");
+
+                                // Update css.
+                                option_change();
+
+                                body.removeClass("yp-clean-look yp-dragging yp-hide-borders-now");
+
+                                draw();
+
+                                gui_update();
+
+                            }, delay);
+
+                        }
+
+                    });
+
+                }
+
+            }
+
+
             /* ---------------------------------------------------- */
             /* Get Handler                                          */
             /* ---------------------------------------------------- */
-            function yp_get_handler() {
+            function update_drag_handle_position() {
 
                 // Element selected?
-                if (!$("body").hasClass("yp-content-selected")) {
+                if (!is_content_selected()) {
                     return false;
                 }
 
                 // element
-                var element = iframe.find(".yp-selected");
-
-                // If already have.
-                if (iframe.find(".yp-selected-handle").length > 0) {
-                    return false;
-                }
-
-                // Clean ex
-                iframe.find(".yp-selected-handle").remove();
+                var element = get_selected_element();
 
                 // Add new
-                if (element.height() > 20 && element.width() > 60) {
+                if (element.height() > 20 && element.width() > 60 && iframe.find(".yp-selected-handle").length === 0) {
                     iframeBody.append("<span class='yp-selected-handle'></span>");
                 }
 
@@ -10986,7 +12384,7 @@
             window.elementOffsetLeft = null;
             window.elementOffsetRight = null;
 
-            function yp_get_host(url) {
+            function get_domain(url) {
                 var domain;
                 if (url.indexOf("://") > -1) {
                     domain = url.split('/')[2];
@@ -10997,6 +12395,12 @@
                 return $.trim(domain);
             }
 
+            var get_absolute_path = function(href){
+                var link = document.createElement("a");
+                link.href = href;
+                return (link.protocol+"//"+link.host+link.pathname+link.search+link.hash);
+            };
+
             iframe.find('a[href]').on("click", iframe, function(evt) {
 
                 $(this).attr("target", "_self");
@@ -11006,13 +12410,16 @@
                 }
 
                 // if aim mode disable.
-                if ($(".yp-selector-mode.active").length == 0) {
+                if ($(".yp-selector-mode.active").length === 0) {
 
                     var href = $(this).attr("href");
 
                     if (href == '') {
                         return false;
                     }
+
+                    // Get full URL
+                    href = get_absolute_path(href);
 
                     if (href.indexOf("#noAiming") > -1) {
                         swal({title: "Sorry.",text: "This link is not an wordpress page. You can't edit this page.",type: "warning",animation: false});
@@ -11021,7 +12428,7 @@
 
                     if (href !== null && href != '' && href.charAt(0) != '#' && href.indexOf("javascript:") == -1 && href.indexOf("yellow_pencil=true") == -1) {
 
-                        var link_host = yp_get_host(href);
+                        var link_host = get_domain(href);
                         var main_host = window.location.hostname;
 
                         if (link_host != main_host) {
@@ -11029,7 +12436,7 @@
                             return false;
                         }
 
-                        if (href.indexOf(siteurl.split("://")[1]) == -1) {
+                        if (href.indexOf(siteurl.split("://")[1]) == -1 || href.indexOf("wp-login.php?action=logout") != -1) {
                             swal({title: "Sorry.",text: "This link is not an wordpress page. You can't edit this page.",type: "warning",animation: false});
                             return false;
                         }
@@ -11047,8 +12454,8 @@
                         }
 
                         // if selector mode not active and need to save.
-                        if ($(".yp-save-btn").hasClass("waiting-for-save") === true){
-                            if (confirm(l18_sure) === true) {
+                        if ($(".yp-save-btn").hasClass(("waiting-for-save"))){
+                            if (confirm(l18_sure) == true) {
                                 $(".waiting-for-save").removeClass("waiting-for-save");
                             } else {
                                 return false;
@@ -11059,7 +12466,9 @@
                         return false;
                     }
 
-                    $("body").hide();
+                    $("#iframe").remove();
+                    body.removeClass("yp-yellow-pencil-loaded");
+                    $(".loading-files").html("Page loading..");
 
                     // Get parent url
                     var parentURL = window.location;
@@ -11074,28 +12483,44 @@
                         return false;
                     }
 
-                    newURL = newURL.replace(/.*?:\/\//g, ""); // delete protocol
+                    var isAdmin = false;
+                    $.get(newURL, function(data){
 
-                    newURL = newURL.replace("&yellow_pencil_frame=true", "").replace("?yellow_pencil_frame=true", "");
+                        $("body").append("<div id='yp-load-test-admin'></div>");
 
-                    newURL = encodeURIComponent(newURL); // encode url
+                        if(data.match(/adminmenumain/g)){
+                            isAdmin = true;
+                        }
 
-                    parentURL = parentURL + newURL; // update parent URL
+                        newURL = newURL.replace(/.*?:\/\//g, ""); // delete protocol
+                        newURL = newURL.replace("&yellow_pencil_frame=true", "").replace("?yellow_pencil_frame=true", "");
+                        newURL = encodeURIComponent(newURL); // encode url
+                        parentURL = parentURL + newURL; // update parent URL
 
-                    window.location = parentURL;
+                        // Check if is admin?
+                        if(body.hasClass(("yp-wordpress-admin-editing") && isAdmin)){
+                            parentURL = parentURL + '&yp_type=wordpress_panel';
+                        }
+
+                        window.location = parentURL;
+
+                    });
+
+                    
 
                 }
 
             });
+
 
             /* ---------------------------------------------------- */
             /* Cancel Selected El. And Select The Element Function  */
             /* ---------------------------------------------------- */
             iframe.on("click", iframe, function(evt) {
 
-                if ($(".yp-selector-mode.active").length > 0 && $("body").hasClass("yp-metric-disable") === true) {
+                if ($(".yp-selector-mode.active").length > 0 && $("body").hasClass(("yp-metric-disable"))) {
 
-                    if (evt.which == 1 || evt.which == undefined) {
+                    if (evt.which == 1 || evt.which === undefined) {
                         evt.stopPropagation();
                         evt.preventDefault();
                     }
@@ -11107,8 +12532,8 @@
                     }
 
                     // Resized
-                    if (body.hasClass("yp-element-resized")) {
-                        body.removeClass("yp-element-resized");
+                    if (body.hasClass("yp-element-resized") || body.hasClass("resize-time-delay")) {
+                        body.removeClass("yp-element-resized resize-time-delay");
                         return false;
                     }
 
@@ -11119,7 +12544,7 @@
                         return false;
                     }
 
-                    if ($(".yp_flat_colors_area:visible").length != 0) {
+                    if ($(".yp_flat_colors_area:visible").length !== 0) {
 
                         $(".yp-flat-colors.active").each(function() {
                             $(this).trigger("click");
@@ -11129,7 +12554,7 @@
 
                     }
 
-                    if ($(".yp_meterial_colors_area:visible").length != 0) {
+                    if ($(".yp_meterial_colors_area:visible").length !== 0) {
 
                         $(".yp-meterial-colors.active").each(function() {
                             $(this).trigger("click");
@@ -11139,7 +12564,7 @@
 
                     }
 
-                    if ($(".yp_nice_colors_area:visible").length != 0) {
+                    if ($(".yp_nice_colors_area:visible").length !== 0) {
 
                         $(".yp-nice-colors.active").each(function() {
                             $(this).trigger("click");
@@ -11149,7 +12574,7 @@
 
                     }
 
-                    if ($(".iris-picker:visible").length != 0) {
+                    if ($(".iris-picker:visible").length !== 0) {
 
                         $(".iris-picker:visible").each(function() {
                             $(this).hide();
@@ -11159,7 +12584,7 @@
 
                     }
 
-                    if ($(".yp_background_assets:visible").length != 0) {
+                    if ($(".yp_background_assets:visible").length !== 0) {
 
                         $(".yp-bg-img-btn.active").each(function() {
                             $(this).trigger("click");
@@ -11169,7 +12594,7 @@
 
                     }
 
-                    if ($("body").hasClass("autocomplete-active") === true) {
+                    if ($("body").hasClass(("autocomplete-active"))) {
 
                         $(".input-autocomplete").each(function() {
                             $(this).autocomplete("close");
@@ -11179,41 +12604,42 @@
 
                     }
 
-                    if ($("body").hasClass("yp-content-selected") === true) {
+                    if (is_content_selected() === true) {
 
                         // CSS To Data.
-                        if (body.hasClass("yp-need-to-process") === true) {
-                            yp_process(false, false);
+                        if (body.hasClass(("yp-need-to-process"))) {
+                            process(false, false);
                         }
 
                         if (iframe.find(".context-menu-active").length > 0) {
-                            iframe.find(".yp-selected").contextMenu("hide");
+                            get_selected_element().contextMenu("hide");
                             return false;
                         }
 
                     }
 
                     var element = $(evt.target);
+                    var element_offset;
 
-                    if (evt.which == undefined || evt.which == 1) {
+                    if (evt.which === undefined || evt.which == 1) {
 
-                        if (body.hasClass("yp-content-selected") === true) {
+                        if (is_content_selected() === true) {
 
-                            if (element.hasClass("yp-edit-menu") === true && element.hasClass("yp-content-selected") === false) {
-                                var element_offset = element.offset();
+                            if (element.hasClass(("yp-edit-menu")) && element.hasClass("yp-content-selected") === false) {
+                                element_offset = element.offset();
                                 var x = element_offset.left;
-                                if (x == 0) {
+                                if (x === 0) {
                                     x = 1;
                                 }
                                 var y = element_offset.top + 26;
-                                iframe.find(".yp-selected").contextMenu({
+                                get_selected_element().contextMenu({
                                     x: x,
                                     y: y
                                 });
                                 return false;
                             }
 
-                            if (element.hasClass("yp-selected-tooltip") === true) {
+                            if (element.hasClass(("yp-selected-tooltip"))) {
                                 $(".yp-button-target").trigger("click");
                                 return false;
                             } else if (element.parent().length > 0) {
@@ -11235,19 +12661,19 @@
                         return false;
                     }
 
-                    var selector = yp_get_parents(element, "default");
+                    var selector = get_parents(element, "default");
 
-                    if ($("body").hasClass("autocomplete-active") === true && selector == 'body') {
+                    if ($("body").hasClass(("autocomplete-active")) && selector == 'body') {
                         return false;
                     }
 
-                    if (evt.which == 1 || evt.which == undefined) {
+                    if (evt.which == 1 || evt.which === undefined) {
 
                         if (element.hasClass("yp-selected") === false) {
 
-                            if (body.hasClass("yp-content-selected") === true && element.parents(".yp-selected").length != 1) {
+                            if (is_content_selected() === true && element.parents(".yp-selected").length != 1) {
 
-                                if ($("body").hasClass("yp-anim-creator")) {
+                                if (is_animate_creator() && is_dragging() === false) {
                                     if (!confirm(l18_closeAnim)) {
                                         return false;
                                     } else {
@@ -11256,8 +12682,29 @@
                                     }
                                 }
 
+                                // Multiable Selector
+                                if(is_content_selected() && body.hasClass("yp-control-key-down")){
+
+                                    if(element.hasClass("yp-selected-others-box") === false){
+
+                                        var selectorCurrent = get_current_selector();
+                                        var selectorNew = get_parents(element, "sharp");
+                                        iframe.find(".yp-selected-others-multiable-box").remove();
+                                        iframe.find(".yp-multiple-selected").addClass("yp-selected-others").removeClass("yp-multiple-selected");
+                                        set_selector(selectorCurrent+","+selectorNew,get_selected_element());
+
+                                        // Disable focus style after clicked.
+                                        element.blur();
+
+                                    }
+
+
+                                    return false;
+
+                                }
+
                                 // remove ex
-                                yp_clean();
+                                clean();
 
                                 // Quick update
                                 iframe.find(evt.target).trigger("mouseover");
@@ -11266,386 +12713,23 @@
 
                         } else {
 
-                            if (body.hasClass("yp-content-selected") === false){
+                            if (is_content_selected() === false){
 
-                                if (yp_check_with_parents(element, "transform", "none", "notequal") === true && yp_check_with_parents(element, "transform", "inherit", "notequal") === true && yp_check_with_parents(element, "transform", "", "notequal") === true) {
+                                if (check_with_parents(element, "transform", "none", "!=") === true){
                                     body.addClass("yp-has-transform");
                                 }
 
                                 // Set selector as  body attr.
                                 body.attr("data-clickable-select", selector);
 
-                                // Add drag support
-                                if (iframeBody.find(".yp-selected").length > 0) {
-
-                                    element.draggable({
-
-                                        containment: iframeBody,
-                                        delay: 100,
-                                        start: function(e,ui){
-
-                                            window.elDragWidth = element.outerWidth();
-                                            window.elDragHeight = element.outerHeight();
-
-                                            if (body.hasClass("yp-css-editor-active")) {
-                                                $(".css-editor-btn").trigger("click");
-                                            }
-
-                                            if (!body.hasClass("yp-content-selected")) {
-                                                return false;
-                                            }
-
-                                            // Close contextmenu
-                                            if (iframe.find(".context-menu-active").length > 0) {
-                                                iframe.find(".yp-selected").contextMenu("hide");
-                                            }
-
-                                            iframe.find(".yp-selected").removeClass("yp_onscreen yp_hover yp_click yp_focus");
-
-                                            // Get Element Style attr.
-                                            window.styleAttr = element.attr("style");
-
-                                            // Add some classes
-                                            body.addClass("yp-clean-look yp-dragging yp-hide-borders-now");
-
-                                            // show position tooltip
-                                            iframeBody.append("<div class='yp-helper-tooltip'></div>");
-
-                                            yp_create_smart_guides();
-
-                                        },
-                                        drag: function(event,ui){
-
-                                            if(window.elDragHeight != $(this).outerHeight()){
-                                                element.css("width",window.elDragWidth+1);
-                                                element.css("height",window.elDragHeight);
-                                            }
-
-                                            // Smart Guides. :-)
-
-                                            // smart guide tolerance. in px.
-                                            var t = 6;
-
-                                            // Defaults
-                                            var c;
-                                            var f;
-
-                                            // this
-                                            var self = $(this);
-
-                                            // This offets
-                                            yp_draw_box(".yp-selected", 'yp-selected-boxed');
-                                            var selfTop = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-top").css("top")));
-                                            var selfLeft = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-left").css("left")));
-                                            var selfRight = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-right").css("left")));
-                                            var selfBottom = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-bottom").css("top")));
-
-                                            // sizes
-                                            var selfWidth = selfRight-selfLeft;
-                                            var selfHeight = selfBottom-selfTop;
-                                            var selfRW = self.outerWidth();
-                                            var selfPLeft = parseFloat(self.css("left"));
-                                            var selfPTop = parseFloat(self.css("top"));
-
-                                            // Bottom
-                                            var yBorder = iframeBody.find(".yp-y-distance-border");
-                                            var xBorder = iframeBody.find(".yp-x-distance-border");
-
-                                            xBorder.css("display","none");
-                                            yBorder.css("display","none");
-
-
-                                            // Search for:
-                                            // top in top 
-                                            // bottom in bottom
-                                            // top in bottom
-                                            // bottom in top
-                                            var axsisxEl = iframeBody.find(".yp-smart-guide-elements[data-yp-bottom-round='"+yp_round(selfBottom)+"']");
-                                            axsisxEl = axsisxEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-top-round='"+yp_round(selfTop)+"']"));
-                                            axsisxEl = axsisxEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-top-round='"+yp_round(selfBottom)+"']"));
-                                            axsisxEl = axsisxEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-bottom-round='"+yp_round(selfTop)+"']"));
-
-                                            if(axsisxEl.length > 0){
-
-                                                // Getting sizes
-                                                var otherTop = parseFloat(axsisxEl.attr("data-yp-top"));
-                                                var otherLeft = parseFloat(axsisxEl.attr("data-yp-left"));
-                                                var otherWidth = parseFloat(axsisxEl.attr("data-yp-width"));
-                                                var otherHeight = parseFloat(axsisxEl.attr("data-yp-height"));
-                                                var otherBottom = parseFloat(otherTop+otherHeight);
-                                                var otherRight = parseFloat(otherLeft+otherWidth);
-
-                                                // Calculate smart guides positions.
-                                                if(selfLeft > otherLeft){
-                                                    var wLeft = otherLeft;
-                                                    var wWidth = selfRight-otherLeft;
-                                                }else{
-                                                    var wLeft = selfLeft;
-                                                    var wWidth = otherRight-selfLeft;
-                                                }
-
-                                                // TOP = TOP
-                                                if(axsisxEl.attr("data-yp-top-round") == yp_round(selfTop)){
-                                                    var wTop = otherTop;
-                                                }
-
-                                                // BOTTOM = BOTTOM
-                                                if(axsisxEl.attr("data-yp-bottom-round") == yp_round(selfBottom)){
-                                                    var wTop = otherBottom;
-                                                }
-
-                                                // BOTTOM = TOP
-                                                if(axsisxEl.attr("data-yp-bottom-round") == yp_round(selfTop)){
-                                                    var wTop = otherBottom;
-                                                }
-
-                                                // TOP = BOTTOM
-                                                if(axsisxEl.attr("data-yp-top-round") == yp_round(selfBottom)){
-                                                    var wTop = otherTop;
-                                                }
-
-                                                // controllers
-                                                c = ui.offset.top-otherTop;
-
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherTop-selfTop)+selfPTop);
-                                                    ui.position.top = f;
-                                                }
-
-                                                c = ui.offset.top-otherBottom+selfHeight;
-
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherBottom-selfBottom)+selfPTop);
-                                                    ui.position.top = f;
-                                                }
-
-                                                c = ui.offset.top-otherTop+selfHeight;
-
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherTop-selfBottom)+selfPTop);
-                                                    ui.position.top = f;
-                                                }
-
-                                                c = ui.offset.top-otherBottom;
-
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherBottom-selfTop)+selfPTop);
-                                                    ui.position.top = f;
-                                                }
-
-                                                xBorder.css({'top':wTop,'left':wLeft,'width':wWidth,'display':'block'});
-
-                                            }
-
-
-                                            // Search for:
-                                            // left in left
-                                            // right in right
-                                            // left in right
-                                            // right in left
-                                            var axsisyEl = iframeBody.find(".yp-smart-guide-elements[data-yp-right-round='"+yp_round(selfRight)+"']");
-
-                                            axsisyEl = axsisyEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-left-round='"+yp_round(selfLeft)+"']"));
-
-                                            axsisyEl = axsisyEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-left-round='"+yp_round(selfRight)+"']"));
-
-                                            axsisyEl = axsisyEl.add(iframeBody.find(".yp-smart-guide-elements[data-yp-right-round='"+yp_round(selfLeft)+"']"));
-
-                                            if(axsisyEl.length > 0){
-
-                                                // Getting sizes
-                                                var otherTop = parseFloat(axsisyEl.attr("data-yp-top"));
-                                                var otherLeft = parseFloat(axsisyEl.attr("data-yp-left"));
-                                                var otherWidth = parseFloat(axsisyEl.attr("data-yp-width"));
-                                                var otherHeight = parseFloat(axsisyEl.attr("data-yp-height"));
-                                                var otherBottom = parseFloat(otherTop+otherHeight);
-                                                var otherRight = parseFloat(otherLeft+otherWidth);
-
-                                                // Calculate smart guides positions.
-                                                if(selfTop > otherTop){
-                                                    var wTop = otherTop;
-                                                    var wHeight = selfBottom-otherTop;
-                                                }else{
-                                                    var wTop = selfTop;
-                                                    var wHeight = otherBottom-selfTop;
-                                                }
-
-                                                // LEFT = LEFT
-                                                if(axsisyEl.attr("data-yp-left-round") == yp_round(selfLeft)){
-                                                    var wLeft = otherLeft;
-                                                }
-
-                                                // RIGHT = RIGHT
-                                                if(axsisyEl.attr("data-yp-right-round") == yp_round(selfRight)){
-                                                    var wLeft = otherRight;
-                                                }
-
-                                                // RIGHT = LEFT
-                                                if(axsisyEl.attr("data-yp-right-round") == yp_round(selfLeft)){
-                                                    var wLeft = otherRight;
-                                                }
-
-                                                // LEFT = RIGHT
-                                                if(axsisyEl.attr("data-yp-left-round") == yp_round(selfRight)){
-                                                    var wLeft = otherLeft;
-                                                }
-
-                                                // controller
-                                                c = ui.offset.left-otherLeft;
-
-                                                // Sharpening
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherLeft-selfLeft)+selfPLeft);
-                                                    ui.position.left = f;
-                                                }
-
-                                                // controller
-                                                c = ui.offset.left-otherRight;
-
-                                                // Sharpening
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherRight-selfLeft)+selfPLeft);
-                                                    ui.position.left = f;
-                                                }
-
-                                                // controller
-                                                c = ui.offset.left-otherRight+selfWidth;
-
-                                                // Sharpening
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherRight-selfRight)+selfPLeft);
-                                                    ui.position.left = f;
-                                                }
-
-                                                // controller
-                                                c = Math.round(ui.offset.left-otherLeft+selfRW);
-
-                                                // Sharpening
-                                                if(c < t && c > -Math.abs(t)){
-                                                    f = Math.round((otherLeft-selfRight)+selfPLeft-(selfRW-selfWidth));
-                                                    ui.position.left = f;
-                                                }
-
-                                                yBorder.css({'top':wTop,'left':wLeft,'height':wHeight,'display':'block'});
-
-                                            }
-
-
-                                            if(ui.position.top == 1 || ui.position.top == -1 || ui.position.top == 2 || ui.position.top == -2){
-                                                ui.position.top = 0;
-                                            }
-
-                                            if(ui.position.left == 1 || ui.position.left == -1 || ui.position.left == 2 || ui.position.left == -2){
-                                                ui.position.left = 0;
-                                            }
-
-                                            // Update helper tooltip
-                                            if(selfTop >= 60){
-                                                iframeBody.find(".yp-helper-tooltip").css({'top':selfTop,'left':selfLeft}).html("X : "+parseInt(ui.position.left)+" px<br>Y : "+parseInt(ui.position.top)+" px");
-                                            }else{
-                                                iframeBody.find(".yp-helper-tooltip").css({'top':selfTop+selfHeight+40+10,'left':selfLeft}).html("X : "+parseInt(ui.position.left)+" px<br>Y : "+parseInt(ui.position.top)+" px");
-                                            }
-                                            
-                                        },
-                                        stop: function() {
-
-                                            var selector = yp_get_current_selector();
-
-                                            yp_clean_smart_guides();                                  
-
-                                            window.styleData = 'relative';
-
-                                            var delay = 1;
-
-                                            // CSS To Data.
-                                            if (body.hasClass("yp-need-to-process") === true) {
-                                                yp_process(false, false);
-                                                delay = 70;
-                                            }
-
-                                            // Draw tooltip qiuckly
-                                            yp_draw_tooltip();
-
-                                            // Wait for process.
-                                            setTimeout(function() {
-
-                                            var t = element.css("top");
-                                            var l = element.css("left");
-                                            var b = element.css("bottom");
-                                            var r = element.css("right");
-
-                                            // Back To Orginal Style Attr.
-                                                if (isDefined(window.styleAttr)){
-
-                                                    var trimAtr = window.styleAttr.replace("position:relative;","").replace("position: relative;","").replace("position: relative","");
-
-                                                    if(trimAtr == ''){
-                                                        element.removeAttr("style");
-                                                    }else{
-                                                        element.attr("style",trimAtr);
-                                                    }
-
-                                                } else {
-                                                    element.removeAttr("style");
-                                                }
-
-                                                // Insert new data.
-                                                yp_insert_rule(selector, "top", t, '');
-                                                yp_insert_rule(selector, "left", l, '');
-
-                                                if (parseFloat(t) + parseFloat(b) != 0) {
-                                                    yp_insert_rule(selector, "bottom", "auto", '');
-                                                }
-
-                                                if (parseFloat(l) + parseFloat(r) != 0) {
-                                                    yp_insert_rule(selector, "right", "auto", '');
-                                                }
-
-                                                // Adding styles
-                                                if(element.css("position") == 'static'){
-                                                    yp_insert_rule(selector, "position", "relative", '');
-                                                }
-
-                                                if ($("#position-static").parent().hasClass("active") || $("#position-relative").parent().hasClass("active")){
-                                                    $("#position-relative").trigger("click");
-                                                }
-
-                                                // Set default values for top and left options.
-                                                if ($("li.position-option.active").length > 0) {
-                                                    $("#top-group,#left-group").each(function() {
-                                                        yp_set_default(".yp-selected", yp_id_hammer(this), false);
-                                                    });
-                                                } else {
-                                                    $("li.position-option").removeAttr("data-loaded"); // delete cached data.
-                                                }
-
-                                                // Remove
-                                                iframe.find(".yp-selected,.yp-selected-others").removeClass("ui-draggable ui-draggable-handle ui-draggable-handle");
-
-
-                                                // Update css.
-                                                yp_option_change();
-
-                                                body.removeClass("yp-clean-look yp-dragging yp-hide-borders-now");
-
-                                                yp_draw();
-
-                                                yp_resize();
-
-                                            }, delay);
-
-                                        }
-
-                                    });
-
-                                }
+                                set_draggable(element);
 
                                 // RESIZE ELEMENTS
                                 window.visualResizingType = 'width';
                                 window.ResizeSelectedBorder = "right";
                                 window.styleAttrBeforeChange = element.attr("style");
 
-                                var element_offset = element.offset();
+                                element_offset = element.offset();
                                 window.elementOffsetLeft = element_offset.left;
                                 window.elementOffsetRight = element_offset.right;
 
@@ -11668,18 +12752,18 @@
 
                                 // element selected
                                 body.addClass("yp-content-selected");
-                                yp_toggle_hide(true); // show if hide
+                                css_editor_toggle(true); // show if hide
 
                                 // Disable focus style after clicked.
                                 element.blur();
 
                                 if(body.hasClass("yp-animate-manager-active")){
-                                    yp_anim_manager();
+                                    animation_manager();
                                 }
 
                                 // Update the element informations.
                                 if($(".advanced-info-box").css("display") == 'block' && $(".element-btn").hasClass("active")){
-                                    yp_update_infos("element");
+                                    update_design_information("element");
                                 }
 
                             }
@@ -11693,7 +12777,7 @@
                         // If has href
                         if (isDefined(hrefAttr)) {
 
-                            if (evt.which == 1 || evt.which == undefined) {
+                            if (evt.which == 1 || evt.which === undefined) {
                                 evt.stopPropagation();
                                 evt.preventDefault();
                             }
@@ -11704,17 +12788,18 @@
 
                     }
 
-                    yp_draw();
-                    yp_resize();
+                    draw();
+                    gui_update();
 
                 }
 
             });
 
+            
 
-            function yp_create_smart_guides(){
+            function create_smart_guides(){
 
-                if(body.hasClass("yp-smart-guide-disabled")){
+                if(body.hasClass("yp-smart-guide-disabled") || body.hasClass("yp-has-transform")){
                     return false;
                 }
 
@@ -11723,7 +12808,7 @@
                 var k = $(window).width();
 
                 // Smart guides: START
-                var Allelements = iframeBody.find('*:not(ul *):not(.yp-selected):not(.yp-selected-other):not(.yp-x-distance-border):not(.yp-y-distance-border):not(.hover-info-box):not(.yp-size-handle):not(.yp-edit-menu):not(.yp-selected-tooltip):not(.yp-tooltip-small):not(.yp-selected-handle):not([class^="yp-selected-boxed-"]):not([class^="yp-selected-others-box"]):not(.ypdw):not(.ypdh):not(.yp-helper-tooltip):not(link):not(style):not(script):not(param):not(option):not(tr):not(td):not(th):not(thead):not(tbody):not(tfoot):visible');
+                var Allelements = iframeBody.find(get_all_elements(":not(ul li)"));
 
                 for (var i=0; i < Allelements.length; i++){ 
 
@@ -11744,7 +12829,7 @@
                     }
 
 
-                    if(el.parents(".yp-selected").length <= 0 && el.parents(".yp-selected-others").length <= 0 && el.css("display") != 'none' && el.css("opacity") != 0 && el.css("visibility") != 'hidden' && el.height() >= 10 && el.height() >= 10){ 
+                    if(el.parents(".yp-selected").length <= 0 && el.parents(".yp-selected-others").length <= 0 && el.css("display") != 'none' && el.css("opacity") != "0" && el.css("visibility") != 'hidden' && el.height() >= 10){ 
                             
                         var offset = el.offset();
 
@@ -11774,7 +12859,7 @@
                 }
 
                 // Not adding on responsive mode.
-                if($("body").hasClass("yp-responsive-device-mode") === false){
+                if(maxWidthEl !== null){
 
                     var Pleft = maxWidthEl.offset().left;
 
@@ -11782,8 +12867,8 @@
 
                         var Pright = Pleft+maxWidth;
 
-                        if(parseInt(Pleft+window.leftbarWidth) == parseInt($(window).width()-Pright)){
-                    
+                        if(parseInt(Pleft) == parseInt(iframe.width()-Pright)){
+                        
                             iframeBody.append("<div class='yp-page-border-left' style='left:"+Pleft+"px;'></div><div class='yp-page-border-right' style='left:"+Pright+"px;'></div>");
 
                         }
@@ -11798,7 +12883,7 @@
             }
 
 
-            function yp_clean_smart_guides(){
+            function clean_smart_guides(){
 
                 iframeBody.find(".yp-page-border-left,.yp-page-border-right").remove();
 
@@ -11821,17 +12906,20 @@
             // RESIZE: WIDTH HANDLER
             iframe.on("mousedown", '.yp-selected-boxed-left,.yp-selected-boxed-right', function(event) {
 
-                if (body.hasClass("yp-content-selected") === false) {
-                    return false;
-                }
+            var element = $(this);
 
-                if ($(this).hasClass(".yp-selected-boxed-left") && window.ResizeSelectedBorder == 'right') {
+            body.addClass("resize-time-delay");
+
+            clearTimeout(window.resizeDelay);
+            window.resizeDelay = setTimeout(function(){
+
+                if (is_content_selected() === false) {
                     return false;
                 }
 
                 window.visualResizingType = 'width';
 
-                if ($(this).hasClass("yp-selected-boxed-left")) {
+                if (element.hasClass("yp-selected-boxed-left")) {
                     window.ResizeSelectedBorder = "left";
                 } else {
                     window.ResizeSelectedBorder = "right";
@@ -11849,24 +12937,33 @@
                 window.maxData = {width: parseFloat(el.css("max-width")), height: parseFloat(el.css("max-height"))};
                 window.minData = {width: parseFloat(el.css("min-width")), height: parseFloat(el.css("min-height"))};
 
-                body.addClass("yp-element-resizing");
+                body.addClass("yp-element-resizing yp-clean-look");
 
                 // Close contextmenu
                 if (iframe.find(".context-menu-active").length > 0) {
-                    iframe.find(".yp-selected").contextMenu("hide");
+                    get_selected_element().contextMenu("hide");
                 }
 
                 // show size tooltip
                 iframeBody.append("<div class='yp-helper-tooltip'></div>");
 
-                yp_create_smart_guides();
+                create_smart_guides();
+
+            },150);
 
             });
 
             // RESIZE:HEIGHT HANDLER
             iframe.on("mousedown", '.yp-selected-boxed-top,.yp-selected-boxed-bottom', function(event) {
 
-                if (body.hasClass("yp-content-selected") === false) {
+            var element = $(this);
+
+            body.addClass("resize-time-delay");
+
+            clearTimeout(window.resizeDelay);
+            window.resizeDelay = setTimeout(function(){
+
+                if (is_content_selected() === false) {
                     return false;
                 }
 
@@ -11875,7 +12972,7 @@
 
                 window.visualResizingType = 'height';
                 
-                if ($(this).hasClass("yp-selected-boxed-top")) {
+                if (element.hasClass("yp-selected-boxed-top")) {
                     window.ResizeSelectedBorder = "top";
                 } else {
                     window.ResizeSelectedBorder = "bottom";
@@ -11891,20 +12988,22 @@
                 window.maxData = {width: parseFloat(el.css("max-width")), height: parseFloat(el.css("max-height"))};
                 window.minData = {width: parseFloat(el.css("min-width")), height: parseFloat(el.css("min-height"))};
 
-                body.addClass("yp-element-resizing");
+                body.addClass("yp-element-resizing yp-clean-look");
 
                 // Close contextmenu
                 if (iframe.find(".context-menu-active").length > 0) {
-                    iframe.find(".yp-selected").contextMenu("hide");
+                    get_selected_element().contextMenu("hide");
                 }
 
                 // Removing classes.
-                iframe.find(yp_get_current_selector()).removeClass("yp_selected").removeClass("yp_onscreen").removeClass("yp_hover").removeClass("yp_focus").removeClass("yp_click");
+                iframe.find(get_current_selector()).removeClass("yp_selected yp_onscreen yp_hover yp_focus yp_click");
 
                 // show size tooltip
                 iframeBody.append("<div class='yp-helper-tooltip'></div>");
 
-                yp_create_smart_guides();
+                create_smart_guides();
+
+            },150);
 
             });
 
@@ -11924,22 +13023,25 @@
                     event = event || window.event;
 
                     // cache
-                    var element = iframe.find(".yp-selected");
+                    var element = get_selected_element();
 
                     var elof = element.offset();
 
                     // Convert display inline to inline-block.
                     if (element.css("display") == 'inline') {
-                        yp_insert_rule(yp_get_current_selector(), "display", "inline-block", "");
+                        insert_rule(null, "display", "inline-block", "");
                     }
+
+                    var format = 'px';
+                    var width,smartData,height,dif;
 
                     // If width
                     if (window.visualResizingType == "width") {
 
                         if (window.ResizeSelectedBorder == 'left'){
-                            var width = Math.round(elof.left) + Math.round(element.outerWidth()) - Math.round(event.pageX);
+                            width = Math.round(elof.left) + Math.round(element.outerWidth()) - Math.round(event.pageX);
                         } else {
-                            var width = Math.round(event.pageX) - Math.round(elof.left);
+                            width = Math.round(event.pageX) - Math.round(elof.left);
                         }
                         
 
@@ -11950,16 +13052,24 @@
                                 width = width - Math.round(parseFloat(element.css("padding-left"))) - Math.round(parseFloat(element.css("padding-right")));
                             }
 
+                            // calcature smart sizes. 100% etc
+                            smartData = calcature_smart_sizes(element,width);
+
+                            // Update
+                            width = smartData.val;
+                            format = smartData.format;
+
                             if(window.wasLockX === false){
                                 if (window.ResizeSelectedBorder == 'left'){
-                                    var dif = Math.round(event.pageX)-Math.round(window.mouseDownX)+window.currentMarginLeft;
+                                    dif = Math.round(event.pageX)-Math.round(window.mouseDownX)+window.currentMarginLeft;
                                     element.cssImportant("margin-left", dif + "px");
                                 }
 
-                                element.cssImportant("width", width + "px");
+                                element.cssImportant("width", width + format);
+
                             }
 
-                            yp_draw();
+                            draw_box(".yp-selected", 'yp-selected-boxed');
 
                         }
 
@@ -11968,9 +13078,9 @@
                     } else if (window.visualResizingType == "height") { // else height
 
                         if (window.ResizeSelectedBorder == 'top') {
-                            var height = Math.round(elof.top+element.outerHeight()) - Math.round(event.pageY);
+                            height = Math.round(elof.top+element.outerHeight()) - Math.round(event.pageY);
                         } else {
-                            var height = Math.round(event.pageY) - Math.round(elof.top);
+                            height = Math.round(event.pageY) - Math.round(elof.top);
                         }
 
                         // Min 4px
@@ -11982,13 +13092,13 @@
 
                             if(window.wasLockY === false){
                                 if (window.ResizeSelectedBorder == 'top'){
-                                    var dif = Math.round(event.pageY)-Math.round(window.mouseDownY)+window.currentMarginTop;
+                                    dif = Math.round(event.pageY)-Math.round(window.mouseDownY)+window.currentMarginTop;
                                     element.cssImportant("margin-top", dif + "px");
                                 }
-                                element.cssImportant("height", height + "px");
+                                element.cssImportant("height", height + format);
                             }
 
-                            yp_draw();
+                            draw_box(".yp-selected", 'yp-selected-boxed');
 
                         }
 
@@ -12001,10 +13111,10 @@
                     // Update helper tooltip
                     if(window.visualResizingType == "width"){
                         if(width < 5){width = 5;}
-                        tooltipContent = 'W : '+Math.round(width) + "px";
+                        tooltipContent = 'W : '+Math.round(width) + format;
                     }else{
                         if(height < 5){height = 5;}
-                        tooltipContent = 'H : '+Math.round(height) + "px";
+                        tooltipContent = 'H : '+Math.round(height) + format;
                     }
 
                     // offsets
@@ -12012,6 +13122,9 @@
                     var selfLeft = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-left").css("left")));
                     var selfRight = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-right").css("left")));
                     var selfBottom = Math.round(parseFloat(iframeBody.find(".yp-selected-boxed-bottom").css("top")));
+
+                    // Variables
+                    var wLeft,wWidth,wTop,forceH,wHeight,forceW,otherTop,otherLeft,otherWidth,otherHeight,otherBottom,otherRight;
 
                     // Create smart guides for height.
                     if(window.visualResizingType == "height"){
@@ -12024,33 +13137,33 @@
                         if(axsisxEl.length > 0){
 
                             // Getting sizes
-                            var otherTop = parseFloat(axsisxEl.attr("data-yp-top"));
-                            var otherLeft = parseFloat(axsisxEl.attr("data-yp-left"));
-                            var otherWidth = parseFloat(axsisxEl.attr("data-yp-width"));
-                            var otherHeight = parseFloat(axsisxEl.attr("data-yp-height"));
-                            var otherBottom = parseFloat(otherTop+otherHeight);
-                            var otherRight = parseFloat(otherLeft+otherWidth);
+                            otherTop = parseFloat(axsisxEl.attr("data-yp-top"));
+                            otherLeft = parseFloat(axsisxEl.attr("data-yp-left"));
+                            otherWidth = parseFloat(axsisxEl.attr("data-yp-width"));
+                            otherHeight = parseFloat(axsisxEl.attr("data-yp-height"));
+                            otherBottom = parseFloat(otherTop+otherHeight);
+                            otherRight = parseFloat(otherLeft+otherWidth);
 
                             // Calculate smart guides positions.
                             if(selfLeft > otherLeft){
-                                var wLeft = otherLeft;
-                                var wWidth = selfRight-wLeft;
+                                wLeft = otherLeft;
+                                wWidth = selfRight-wLeft;
                             }else{
-                                var wLeft = selfLeft;
-                                var wWidth = otherRight-selfLeft;
+                                wLeft = selfLeft;
+                                wWidth = otherRight-selfLeft;
                             }
 
                             // Find top or bottom.
                             if(axsisxEl.attr("data-yp-top-round") == yp_round(event.pageY)){
-                                var wTop = otherTop;
-                                var forceH = otherTop-selfTop;
+                                wTop = otherTop;
+                                forceH = otherTop-selfTop;
                             }else{
-                                var wTop = otherBottom;
-                                var forceH = otherBottom-selfTop;
+                                wTop = otherBottom;
+                                forceH = otherBottom-selfTop;
                             }
 
                             if(window.ResizeSelectedBorder != 'top'){
-                                element.cssImportant("height", forceH + "px");
+                                element.cssImportant("height", forceH + format);
                                 window.wasLockY = true;
                             }else{
                                 forceH = height;
@@ -12058,7 +13171,7 @@
 
                             xBorder.css({'top':wTop,'left':wLeft,'width':wWidth,'display':'block'});
 
-                            tooltipContent = 'H : '+Math.round(forceH) + "px";
+                            tooltipContent = 'H : '+Math.round(forceH) + format;
 
                         }
 
@@ -12075,33 +13188,42 @@
                         if(axsisyEl.length > 0){
 
                             // Getting sizes
-                            var otherTop = parseFloat(axsisyEl.attr("data-yp-top"));
-                            var otherLeft = parseFloat(axsisyEl.attr("data-yp-left"));
-                            var otherWidth = parseFloat(axsisyEl.attr("data-yp-width"));
-                            var otherHeight = parseFloat(axsisyEl.attr("data-yp-height"));
-                            var otherBottom = parseFloat(otherTop+otherHeight);
-                            var otherRight = parseFloat(otherLeft+otherWidth);
+                            otherTop = parseFloat(axsisyEl.attr("data-yp-top"));
+                            otherLeft = parseFloat(axsisyEl.attr("data-yp-left"));
+                            otherWidth = parseFloat(axsisyEl.attr("data-yp-width"));
+                            otherHeight = parseFloat(axsisyEl.attr("data-yp-height"));
+                            otherBottom = parseFloat(otherTop+otherHeight);
+                            otherRight = parseFloat(otherLeft+otherWidth);
 
                             // Calculate smart guides positions.
                             if(selfTop > otherTop){
-                                var wTop = otherTop;
-                                var wHeight = selfBottom-otherTop;
+                                wTop = otherTop;
+                                wHeight = selfBottom-otherTop;
                             }else{
-                                var wTop = selfTop;
-                                var wHeight = otherBottom-selfTop;
+                                wTop = selfTop;
+                                wHeight = otherBottom-selfTop;
                             }
 
                             // Find top or bottom.
                             if(axsisyEl.attr("data-yp-left-round") == yp_round(event.pageX)){
-                                var wLeft = otherLeft;
-                                var forceW = otherLeft-selfLeft;
+                                wLeft = otherLeft;
+                                forceW = otherLeft-selfLeft;
                             }else{
-                                var wLeft = otherRight;
-                                var forceW = otherRight-selfLeft;
+                                wLeft = otherRight;
+                                forceW = otherRight-selfLeft;
                             }
 
+
+                            // calcature smart sizes. 100% etc
+                            smartData = calcature_smart_sizes(element,forceW);
+
+                            // Update
+                            forceW = smartData.val;
+                            format = smartData.format;
+
+
                             if(window.ResizeSelectedBorder != 'left'){
-                                element.cssImportant("width", forceW + "px");
+                                element.cssImportant("width", forceW + format);
                                 window.wasLockX = true;
                             }else{
                                 forceW = width;
@@ -12109,7 +13231,7 @@
 
                             yBorder.css({'top':wTop,'left':wLeft,'height':wHeight,'display':'block'});
 
-                            tooltipContent = 'W : '+Math.round(forceW) + "px";
+                            tooltipContent = 'W : '+Math.round(forceW) + format;
 
                         }
 
@@ -12123,12 +13245,92 @@
 
             });
 
+
+            function calcature_smart_sizes(element,val){
+
+                // Variable
+                var result = [];
+
+                var founded = false;
+
+                // Check parent details.
+                if(element.parent().length > 0){
+
+                    if(element.parent().css("display") == 'block' && element.parent().css("float") == 'none'){
+
+                        var parentWidth = element.parent().width();
+
+                        // if width is same with parent width, so set 100%!
+                        if (parseInt(parentWidth) == parseInt(val)) {
+
+                            // Flag
+                            founded = true;
+
+                            // Update
+                            result.val = 100;
+                            result.format = '%';
+
+                        }
+
+                        // if width is 50% with parent width, so set 50%!
+                        if (parseInt(parentWidth/2) == parseInt(val)) {
+
+                            // Flag
+                            founded = true;
+
+                            // Update
+                            result.val = 50;
+                            result.format = '%';
+
+                        }
+
+                        // if width is 25% with parent width, so set 25%!
+                        if (parseInt(parentWidth/4) == parseInt(val)) {
+
+                            // Flag
+                            founded = true;
+
+                            // Update
+                            result.val = 25;
+                            result.format = '%';
+
+                        }
+
+                        // if width is 20% with parent width, so set 20%!
+                        if (parseInt(parentWidth/5) == parseInt(val)) {
+
+                            // Flag
+                            founded = true;
+
+                            // Update
+                            result.val = 20;
+                            result.format = '%';
+
+                        }
+
+                    }
+
+                }
+
+                // Return default
+                if(founded === false){
+                    result.val = val;
+                    result.format = 'px';
+                }
+
+                return result;
+
+            }
+
+
             // RESIZE:STOP
             iframe.on("mouseup", iframe, function() {
 
-                if (body.hasClass("yp-element-resizing")) {
+                clearTimeout(window.resizeDelay);
 
-                    yp_clean_smart_guides();
+                if (is_resizing()) {
+
+                    clean_smart_guides();
 
                     // show size tooltip
                     iframeBody.find(".yp-helper-tooltip").remove();
@@ -12138,22 +13340,23 @@
                     var delay = 1;
 
                     // CSS To Data.
-                    if (body.hasClass("yp-need-to-process") === true) {
-                        yp_process(false, false);
+                    if (body.hasClass(("yp-need-to-process"))) {
+                        process(false, false);
                         delay = 70;
                     }
 
                     // Wait for process.
                     setTimeout(function() {
 
+                        var bWidth;
                         if(window.visualResizingType == 'width'){
-                            var bWidth = window.exWidthX;
+                            bWidth = window.exWidthX;
                         }else{
-                            var bWidth = window.exWidthY;
+                            bWidth = window.exWidthY;
                         }
 
                         // cache
-                        var element = iframe.find(".yp-selected");
+                        var element = get_selected_element();
 
                         // get result
                         var width = parseFloat(element.css(window.visualResizingType)).toString();
@@ -12162,10 +13365,22 @@
 
                         // width 100% for screen
                         if (window.visualResizingType == 'width') {
-                            if (parseFloat(width) + parseFloat(1) == $(window).width() || parseFloat(width) + parseFloat(1) + parseFloat(element.css("padding-left")) + parseFloat(element.css("padding-right")) == $(window).width()) {
-                                width = "100";
-                                format = '%';
-                            }
+                            
+                            // calcature smart sizes. 100% etc
+                            var smartData = calcature_smart_sizes(element,width);
+
+                            // Update
+                            width = smartData.val;
+                            format = smartData.format;
+
+                        }
+
+                        if(window.exWidthX !== null && window.ResizeSelectedBorder == 'left' && widthCa != bWidth){
+                            insert_rule(null,"margin-left",parseFloat(element.css("margin-left")),'px');
+                        }
+
+                        if(window.exWidthY !== null && window.ResizeSelectedBorder == 'top' && widthCa != bWidth){
+                            insert_rule(null,"margin-top",parseFloat(element.css("margin-top")),'px');
                         }
 
                         //return to default
@@ -12175,48 +13390,42 @@
                             element.removeAttr("style");
                         }
 
-                        if(window.exWidthX !== null && window.ResizeSelectedBorder == 'left' && widthCa != bWidth){
-                            yp_insert_rule(yp_get_current_selector(),"margin-left",parseFloat(element.css("margin-left")),'px');
-                        }
-
-                        if(window.exWidthY !== null && window.ResizeSelectedBorder == 'top' && widthCa != bWidth){
-                            yp_insert_rule(yp_get_current_selector(),"margin-top",parseFloat(element.css("margin-top")),'px');
-                        }
-
                         // insert to data.
                         if(widthCa != bWidth){
-                            yp_insert_rule(yp_get_current_selector(), window.visualResizingType, width, format);
+                            insert_rule(null, window.visualResizingType, width, format);
                         }
 
-                        body.removeClass("yp-element-resizing").removeClass("yp-element-resizing-height-bottom yp-element-resizing-width-left yp-element-resizing-width-right yp-element-resizing-height-top");
+                        body.removeClass("yp-element-resizing yp-clean-look yp-element-resizing-height-bottom yp-element-resizing-width-left yp-element-resizing-width-right yp-element-resizing-height-top");
 
 
                         // If width/height large than max width/height
                         if(window.maxData[window.visualResizingType] < width){
-                            yp_insert_rule(yp_get_current_selector(), "max-"+window.visualResizingType, width, format);
+                            insert_rule(null, "max-"+window.visualResizingType, width, format);
                         }
 
                         // If width large than max width/height
                         if(window.minData[window.visualResizingType] > width){
-                            yp_insert_rule(yp_get_current_selector(), "min-"+window.visualResizingType, width, format);
+                            insert_rule(null, "min-"+window.visualResizingType, width, format);
                         }
 
+                        draw();
+
                         // Update
-                        yp_option_change();
+                        option_change();
 
                         // Set default values for top and left options.
                         $.each(['width','height','max-width','max-height','min-width','min-height','margin-left','margin-top'], function(i, v) {
-                            yp_set_default(".yp-selected", yp_id_hammer($("#"+v+"-group")), false);
+                            set_default_value(v);
                         });
                         
                         window.mouseisDown = false;
 
-                        yp_draw();
+                        draw();
 
                     }, delay);
 
                     setTimeout(function() {
-                        body.removeClass("yp-element-resized");
+                        body.removeClass("yp-element-resized resize-time-delay");
                     }, 100);
 
                 }
@@ -12232,7 +13441,7 @@
             // because I not want load ":hover" values.
             body.on('mousedown', '.yp-editor-list > li:not(.yp-li-footer):not(.yp-li-about):not(.active)', function() {
 
-                if (body.hasClass("yp-content-selected") === true) {
+                if (is_content_selected() === true) {
 
                     // Get data
                     var data = $(this).attr("data-loaded");
@@ -12242,7 +13451,7 @@
 
                         // Set default values
                         $(this).find(".yp-option-group").each(function() {
-                            yp_set_default(".yp-selected", yp_id_hammer(this), false);
+                            set_default_value(get_option_id(this));
                         });
 
                         // cache to loaded data.
@@ -12254,16 +13463,80 @@
 
             });
 
-            // Update boxes while mouse over and out selected elements.
-            iframe.on("mouseout mouseover", '.yp-selected,.yp-selected-others', function() {
 
-                if (body.hasClass("yp-content-selected")) {
-                    setTimeout(function() {
-                        yp_draw();
-                    }, 5);
+            // Update boxes while mouse over and out selected elements.
+            iframe.on("mouseout mouseover", '.yp-selected', function() {
+
+                if (is_content_selected() == true && is_resizing() == false && is_dragging() == false) {
+
+                    clearTimeout(window.update_drawmouseOver);
+                    window.update_drawmouseOver = setTimeout(function() {
+                        draw();
+                    }, 50);
+
                 }
 
             });
+
+
+            // Used by smart guides etc.
+            function get_all_elements(custom){
+
+                var selector = '*';
+
+                var notSelectors = [
+                    ".yp-x-distance-border",
+                    ".yp-y-distance-border",
+                    ".hover-info-box",
+                    ".yp-size-handle",
+                    ".yp-edit-menu",
+                    ".yp-selected-tooltip",
+                    ".yp-tooltip-small",
+                    ".yp-helper-tooltip",
+                    "[class^='yp-selected-boxed-']",
+                    "[class^='yp-selected-others-box']",
+                    "link",
+                    "style",
+                    "script",
+                    "param",
+                    "option",
+                    "tr",
+                    "td",
+                    "th",
+                    "thead",
+                    "tbody",
+                    "tfoot",
+                    "iframe",
+                    "noscript"
+                ];
+
+                // Get classes added by editor
+                var pluginClasses = window.plugin_classes_list.split("|");
+
+                for(var x = 0; x < pluginClasses.length; x++){
+                    pluginClasses[x] = "." + pluginClasses[x];
+                }
+
+                // concat
+                notSelectors = notSelectors.concat(pluginClasses);
+
+                // Adding not selectors
+                for(var i = 0; i < notSelectors.length; i++){
+                    selector += ":not("+notSelectors[i]+")";
+                }
+
+                // parement
+                if(custom !== undefined){
+                    selector += custom;
+                }
+
+                // Visible filter
+                selector += ":visible";
+
+                return selector;
+
+            }
+
 
             /* ---------------------------------------------------- */
             /* Option None / Disable Buttons                        */
@@ -12274,6 +13547,10 @@
             $(".yp-btn-action").click(function(e) {
 
                 var elementPP = $(this).parent().parent().parent();
+
+                var id = get_option_id(elementPP);
+
+                var value,prefix;
 
                 // inherit, none etc.
                 if ($(this).hasClass("yp-none-btn")) {
@@ -12287,12 +13564,11 @@
 
                     }
 
-                    var prefix = '';
+                    value = '';
+                    prefix = '';
 
                     // If slider
                     if (elementPP.hasClass("yp-slider-option")) {
-
-                        var id = elementPP.attr("id").replace("-group", "");
 
                         if ($(this).hasClass("active")) {
 
@@ -12305,8 +13581,8 @@
                             elementPP.find(".yp-after-disable-disable").hide();
 
                             // Value
-                            var value = $("#yp-" + id).val();
-                            var prefix = $("#" + id + "-after").val();
+                            value = $("#yp-" + id).val();
+                            prefix = $("#" + id + "-after").val();
 
                         } else {
 
@@ -12319,21 +13595,21 @@
                             elementPP.find(".yp-after-disable-disable").show();
 
                             // Value
-                            var value = elementPP.find(".yp-none-btn").text();
+                            value = elementPP.find(".yp-none-btn").text();
 
                         }
 
                         // If is radio
                     } else if (elementPP.find(".yp-radio-content").length > 0) {
 
-                        var id = elementPP.attr("id").replace("-group", "");
+                        
 
                         if ($(this).hasClass("active")) {
 
                             $(this).removeClass("active");
 
                             // Value
-                            var value = $("input[name=" + id + "]:checked").val();
+                            value = $("input[name=" + id + "]:checked").val();
 
                             $("input[name=" + id + "]:checked").parent().addClass("active");
 
@@ -12344,54 +13620,50 @@
                             elementPP.find(".yp-radio.active").removeClass("active");
 
                             // Value
-                            var value = elementPP.find(".yp-none-btn").text();
+                            value = elementPP.find(".yp-none-btn").text();
 
                         }
 
                         // If is select
                     } else if (elementPP.find("select").length > 0) {
 
-                        var id = elementPP.attr("id").replace("-group", "");
+                        
 
                         if ($(this).hasClass("active")) {
 
                             $(this).removeClass("active");
 
                             // Value
-                            var value = $("#yp-" + id).val();
+                            value = $("#yp-" + id).val();
 
                         } else {
 
                             $(this).addClass("active");
 
                             // Value
-                            var value = elementPP.find(".yp-none-btn").text();
+                            value = elementPP.find(".yp-none-btn").text();
 
                         }
 
                     } else {
 
-                        var id = elementPP.attr("id").replace("-group", "");
-
                         if ($(this).hasClass("active")) {
 
                             $(this).removeClass("active");
 
                             // Value
-                            var value = $("#yp-" + id).val();
+                            value = $("#yp-" + id).val();
 
                         } else {
 
                             $(this).addClass("active");
 
                             // Value
-                            var value = 'transparent';
+                            value = 'transparent';
 
                         }
 
                     }
-
-                    var selector = yp_get_current_selector();
 
                     if (id == 'background-image') {
 
@@ -12407,27 +13679,25 @@
 
                     if (e.originalEvent) {
 
-                        yp_insert_rule(selector, id, value, prefix);
-                        yp_option_change();
+                        insert_rule(null, id, value, prefix);
+                        option_change();
 
                     } else if (id == 'background-repeat' || id == 'background-size') {
 
                         if ($(".yp_background_assets:visible").length > 0) {
-                            yp_insert_rule(selector, id, value, prefix);
-                            yp_option_change();
+                            insert_rule(null, id, value, prefix);
+                            option_change();
                         }
 
                     }
 
                 } else { // disable this option
 
-                    // Prefix.
-                    var prefix = '';
+                    value = '';
+                    prefix = '';
 
                     // If slider
                     if (elementPP.hasClass("yp-slider-option")) {
-
-                        var id = elementPP.attr("id").replace("-group", "");
 
                         if ($(this).hasClass("active")) {
 
@@ -12436,10 +13706,10 @@
 
                             // Value
                             if (!elementPP.find(".yp-none-btn").hasClass("active")) {
-                                var value = $("#yp-" + id).val();
-                                var prefix = $("#" + id + "-after").val();
+                                value = $("#yp-" + id).val();
+                                prefix = $("#" + id + "-after").val();
                             } else {
-                                var value = elementPP.find(".yp-none-btn").text();
+                                value = elementPP.find(".yp-none-btn").text();
                             }
 
                         } else {
@@ -12448,15 +13718,13 @@
                             elementPP.css("opacity", 0.5);
 
                             // Value
-                            var value = 'disable';
+                            value = 'disable';
 
                         }
 
                         // If is radio
                     } else if (elementPP.find(".yp-radio-content").length > 0) {
 
-                        var id = elementPP.attr("id").replace("-group", "");
-
                         if ($(this).hasClass("active")) {
 
                             $(this).removeClass("active");
@@ -12464,9 +13732,9 @@
 
                             // Value
                             if (!elementPP.find(".yp-none-btn").hasClass("active")) {
-                                var value = $("input[name=" + id + "]:checked").val();
+                                value = $("input[name=" + id + "]:checked").val();
                             } else {
-                                var value = elementPP.find(".yp-none-btn").text();
+                                value = elementPP.find(".yp-none-btn").text();
                             }
 
                         } else {
@@ -12475,15 +13743,13 @@
                             elementPP.css("opacity", 0.5);
 
                             // Value
-                            var value = 'disable';
+                            value = 'disable';
 
                         }
 
                         // If is select
                     } else if (elementPP.find("select").length > 0) {
 
-                        var id = elementPP.attr("id").replace("-group", "");
-
                         if ($(this).hasClass("active")) {
 
                             $(this).removeClass("active");
@@ -12491,9 +13757,9 @@
 
                             // Value
                             if (!elementPP.find(".yp-none-btn").hasClass("active")) {
-                                var value = $("#yp-" + id).val();
+                                value = $("#yp-" + id).val();
                             } else {
-                                var value = elementPP.find(".yp-none-btn").text();
+                                value = elementPP.find(".yp-none-btn").text();
                             }
 
                         } else {
@@ -12502,14 +13768,12 @@
                             elementPP.css("opacity", 0.5);
 
                             // Value
-                            var value = 'disable';
+                            value = 'disable';
 
                         }
 
                     } else {
 
-                        var id = elementPP.attr("id").replace("-group", "");
-
                         if ($(this).hasClass("active")) {
 
                             $(this).removeClass("active");
@@ -12517,9 +13781,9 @@
 
                             // Value
                             if (!elementPP.find(".yp-none-btn").hasClass("active")) {
-                                var value = $("#yp-" + id).val();
+                                value = $("#yp-" + id).val();
                             } else {
-                                var value = elementPP.find(".yp-none-btn").text();
+                                value = elementPP.find(".yp-none-btn").text();
                             }
 
                         } else {
@@ -12528,7 +13792,7 @@
                             elementPP.css("opacity", 0.5);
 
                             // Value
-                            var value = 'disable';
+                            value = 'disable';
 
                         }
 
@@ -12546,23 +13810,18 @@
 
                     }
 
-                    var selector = yp_get_current_selector();
-
                     if (e.originalEvent) {
-
-                        yp_insert_rule(selector, id, value, prefix);
-
+                        insert_rule(null, id, value, prefix);
                     }
 
-                    yp_draw();
-
                     if (e.originalEvent) {
-                        yp_option_change();
+                        option_change();
                     }
 
                 }
 
-                yp_resize();
+                // Update panel
+                gui_update();
 
             });
 
@@ -12582,6 +13841,8 @@
 
                     $(".yp-editor-list > li").show(0);
                     $(this).find(".yp-this-content").hide(0).parent().removeClass("active");
+
+                    $(".lock-btn").removeClass("active");
 
                 });
 
@@ -12608,14 +13869,14 @@
 
                 $('.yp-editor-list').scrollTop(0);
 
-                yp_resize();
+                gui_update();
 
             });
 
             /* ---------------------------------------------------- */
             /* Filters                                              */
             /* ---------------------------------------------------- */
-            function yp_num(a) {
+            function number_filter(a) {
                 if (typeof a !== "undefined" && a != '') {
                     if (a.replace(/[^\d.-]/g, '') === null || a.replace(/[^\d.-]/g, '') === undefined) {
                         return 0;
@@ -12627,7 +13888,7 @@
                 }
             }
 
-            function yp_alfa(a) {
+            function alfa_filter(a) {
                 if (typeof a !== "undefined" && a != '') {
                     return a.replace(/\d/g, '').replace(".px", "px");
                 } else {
@@ -12636,7 +13897,7 @@
             }
 
 
-            var yp_id_basic = function(str) {
+            var get_basic_id = function(str) {
                 if (typeof str !== "undefined" && str != '') {
                     str = str.replace(/\W+/g, "");
                     return str;
@@ -12645,7 +13906,7 @@
                 }
             };
 
-            function yp_id(str) {
+            function get_id(str) {
                 if (typeof str !== "undefined" && str != '') {
 
                     // \^\#\+\$\(\)\[\]\=\*\-\:\.\>\,\~ work in process. 
@@ -12673,7 +13934,7 @@
                 }
             }
 
-            function yp_cleanArray(actual) {
+            function array_cleaner(actual) {
 
                 var uniqueArray = [];
                 $.each(actual, function(i, el) {
@@ -12685,37 +13946,130 @@
             }
 
 
-            function upperCaseFirst(str){
+            function uppercase_first_letter(str){
                 return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+            }
+
+
+
+            // Getting selected element's names
+            function get_tag_information(selectors){
+
+                var selectorsArray = selectors.split(",");
+
+                // If is one selector
+                if(selectorsArray.length == 1){
+                    return get_single_tag_information(selectors);
+                }
+
+
+                // Multi Selectors
+                var allTagNames = [];
+                var name = '';
+
+                // Get all tag names by selectors
+                for(var i = 0; i < selectorsArray.length; i++){
+
+                    // Get tag name
+                    name = get_single_tag_information(selectorsArray[i]);
+
+                    // Push if the name not in name-list
+                    if(allTagNames.indexOf(name) == -1){
+                        allTagNames.push(name);
+                    }
+
+                }
+
+                return allTagNames.toString().replace(/\,/g,", ");
+
+            }
+
+
+            function get_foundable_query(selector,css,body,animation){
+
+                if(css === true){
+
+                    // Hover Focus
+                    selector = selector.replace(/:hover/g,'').replace(/:focus/g,'');
+
+                    // After
+                    selector = selector.replace(/:after/g,'').replace(/::after/g,'');
+
+                    // Before
+                    selector = selector.replace(/:before/g,'').replace(/::before/g,'');
+
+                    // First Letter
+                    selector = selector.replace(/:first-letter/g,'').replace(/::first-letter/g,'');
+
+                    // First Line
+                    selector = selector.replace(/:first-line/g,'').replace(/::first-line/g,'');
+
+                    // Selection
+                    selector = selector.replace(/:selection/g,'').replace(/::selection/g,'');
+
+                }
+
+                if(body === true){
+
+                    // YP Selector Hover
+                    selector = selector.replace(/body\.yp-selector-hover/g,'').replace(/\.yp-selector-hover/g,'');
+
+                    // YP Selector Focus
+                    selector = selector.replace(/body\.yp-selector-focus/g,'').replace(/\.yp-selector-focus/g,'');
+
+                }
+
+                if(animation === true){
+
+                    // YP Animations
+                    selector = selector.replace(/.yp_onscreen/g,'').replace(/.yp_focus/g,'').replace(/.yp_hover/g,'').replace(/.yp_click/g,'');
+
+                }
+
+                return selector.trim();
+
+            }
+
+
+            // No multiple spaces.
+            function space_cleaner(data){
+                return $.trim(data.replace(/\s\s+/g,' '));
             }
 
 
             /* ---------------------------------------------------- */
             /* Info About class or tagName                          */
             /* ---------------------------------------------------- */
-            function yp_tag_info(a, selector) {
+            function get_single_tag_information(selector){
 
-                if (selector.split(":").length > 0) {
-                    selector = selector.split(":")[0];
+                selector = get_foundable_query(selector,true,true,true);
+
+                if(iframe.find(selector).length <= 0){
+                    return;
                 }
 
+                var PPname,Pname;
+
+                // tagName
+                var a = iframe.find(selector)[0].nodeName;
+
                 // length
-                var length = yp_selector_to_array(selector).length - 1;
+                var length = get_selector_array(selector).length - 1;
 
                 // Names
-                var n = yp_selector_to_array(selector)[length].toUpperCase();
-                if (n.indexOf(".") != -1) {
+                var n = get_selector_array(selector)[length].toUpperCase();
+                if (n.indexOf(".") != -1){
                     n = n.split(".")[1].replace(/[^\w\s]/gi, '');
                 }
 
                 // Class Names
-                var className = $.trim(yp_selector_to_array(selector)[length]);
+                var className = $.trim(get_selector_array(selector)[length]);
                 if (className.indexOf(".") != -1) {
                     className = className.split(".")[1];
                 }
 
                 // ID
-                var id = iframe.find(".yp-selected").attr("id");
+                var id = get_selected_element().attr("id");
 
                 if (isDefined(id)) {
                     id = id.toUpperCase().replace(/[^\w\s]/gi, '');
@@ -12723,22 +14077,22 @@
 
                 // Parents 1
                 if (length > 1) {
-                    var Pname = yp_selector_to_array(selector)[length - 1].toUpperCase();
+                    Pname = get_selector_array(selector)[length - 1].toUpperCase();
                     if (Pname.indexOf(".") != -1) {
                         Pname = Pname.split(".")[1].replace(/[^\w\s]/gi, '');
                     }
                 } else {
-                    var Pname = '';
+                    Pname = '';
                 }
 
                 // Parents 2
                 if (length > 2) {
-                    var Pname = yp_selector_to_array(selector)[length - 2].toUpperCase();
-                    if (Pname.indexOf(".") != -1) {
-                        Pname = Pname.split(".")[1].replace(/[^\w\s]/gi, '');
+                    PPname = get_selector_array(selector)[length - 2].toUpperCase();
+                    if (PPname.indexOf(".") != -1) {
+                        PPname = PPname.split(".")[1].replace(/[^\w\s]/gi, '');
                     }
                 } else {
-                    var PPname = '';
+                    PPname = '';
                 }
 
                 // ID
@@ -12768,7 +14122,7 @@
                 // Current Classes
                 if (n == 'WIDGET') {
                     return l18_widget;
-                } else if (n == 'FA' || yp_selector_to_array(selector)[length].toUpperCase().indexOf("FA-") >= 0) {
+                } else if (n == 'FA' || get_selector_array(selector)[length].toUpperCase().indexOf("FA-") >= 0) {
                     return l18_font_awesome_icon;
                 } else if (n == 'SUBMIT' && a == 'INPUT') {
                     return l18_submit_button;
@@ -12955,13 +14309,13 @@
                 }
 
                 // Smart For ID
-                if (yp_smart_name(id) !== false) {
-                    return yp_smart_name(id);
+                if (get_name_by_classes(id) !== false) {
+                    return get_name_by_classes(id);
                 }
 
                 // Smart For Class
-                if (yp_smart_name(className) !== false) {
-                    return yp_smart_name(className);
+                if (get_name_by_classes(className) !== false) {
+                    return get_name_by_classes(className);
                 }
 
                 // If not have name found, use clear.
@@ -13072,18 +14426,18 @@
 
             }
 
-            function yp_letter_repeat(str) {
+            function letter_repeat(str) {
                 var reg = /^([a-z])\1+$/;
                 var d = reg.test(str);
                 return d;
             }
 
-            function titleCase(string) {
+            function title_case(string) {
                 return string.charAt(0).toUpperCase() + string.slice(1);
             }
             // http://www.corelangs.com/js/string/cap.html#sthash.vke6OlCk.dpuf
 
-            function yp_smart_name(className) {
+            function get_name_by_classes(className) {
 
                 if (typeof className == typeof undefined || className === false) {
                     return false;
@@ -13115,7 +14469,7 @@
                 // Clean
                 className = className.replace(/_/g, ' ').replace(/-/g, ' ');
 
-                var classNames = yp_classes_to_array(className);
+                var classNames = get_classes_array(className);
 
                 var i = 0;
                 for (i = 0; i < classNames.length; i++) {
@@ -13131,14 +14485,14 @@
                     return false;
                 }
 
-                if (yp_letter_repeat(className)) {
+                if (letter_repeat(className)) {
                     return false;
                 }
 
                 // For id.
                 className = className.replace("#", "");
 
-                return titleCase(className);
+                return title_case(className);
 
             }
 
@@ -13148,38 +14502,39 @@
                 var v = $(this).find("input").val();
 
                 if (v == 'disable') {
-                    iframe.find(yp_get_current_selector()).addClass("yp-parallax-disabled");
+                    iframe.find(get_current_selector()).addClass("yp-parallax-disabled");
                 } else {
-                    iframe.find(yp_get_current_selector()).removeClass("yp-parallax-disabled");
+                    iframe.find(get_current_selector()).removeClass("yp-parallax-disabled");
                 }
 
             });
 
             // Update saved btn
-            function yp_option_change() {
+            function option_change(){
 
-                $(".yp-save-btn").html(l18_save).removeClass("yp-disabled").addClass("waiting-for-save");
+                if(window.option_changeType != 'auto'){
+                    $(".yp-save-btn").html(l18_save).removeClass("yp-disabled").addClass("waiting-for-save");
+                }
 
                 setTimeout(function() {
 
                     // Call CSS Engine.
-                    $(document).CallCSSEngine(yp_get_clean_css(true));
+                    $(document).CallCSSEngine(get_clean_css(true));
 
                 }, 200);
 
                 setTimeout(function() {
-                    editor.setValue(yp_get_clean_css(true));
+                    editor.setValue(get_clean_css(true));
                 }, 200);
 
-            }
+                setTimeout(function(){
+                    check_undoable_history();
+                },220);
 
-            // Update saved btn
-            function yp_option_update() {
-                $(".yp-save-btn").html(l18_saved).addClass("yp-disabled").removeClass("waiting-for-save");
             }
 
             // Wait until CSS process.
-            function yp_process(close, id, type) {
+            function process(close, id, type) {
 
                 // close css editor with process..
                 if (close === true) {
@@ -13193,12 +14548,12 @@
                     $(".css-editor-btn").attr("data-original-title",$(".css-editor-btn").attr("data-title"));
 
                     // Update All.
-                    yp_draw();
+                    draw();
 
                 }
 
                 // IF not need to process, stop here.
-                if (body.hasClass("yp-need-to-process") === false) {
+                if (body.hasClass("yp-need-to-process") === false || body.hasClass("yp-processing-now")) {
                     return false;
                 }
 
@@ -13206,7 +14561,7 @@
                 body.removeClass("yp-need-to-process");
 
                 // Processing.
-                if (body.find(".yp-processing").length == 0) {
+                if (body.find(".yp-processing").length === 0) {
                     body.addClass("yp-processing-now");
                     body.append("<div class='yp-processing'><span></span><p>" + l18_process + "</p></div>");
                 } else {
@@ -13219,7 +14574,7 @@
 
                 setTimeout(function() {
 
-                    yp_cssToData('desktop');
+                    css_to_data('desktop');
 
                     if (editor.getValue().toString().indexOf("@media") != -1) {
 
@@ -13228,12 +14583,10 @@
                         // Search medias and convert to Yellow Pencil Data
                         $.each(mediaTotal, function(index, value) {
 
-                            value = value.replace(/(\r\n|\n|\r)/g, "").replace(/\t/g, '');
-                            value = value.replace(/\/\*(.*?)\*\//g, "");
-                            value = value.replace(/\}\s+\}/g, '}}').replace(/\s+\{/g, '{');
-                            value = value.replace(/\s+\}/g, '}').replace(/\{\s+/g, '{');
+                            // make .min the media content
+                            value = get_minimized_css(value,false);
 
-                            yp_cssToData(value);
+                            css_to_data(value);
 
                         });
 
@@ -13241,12 +14594,17 @@
 
                     iframe.find("#yp-css-data-full").remove();
 
+                    // Added from css_to_data function. must remove.
                     body.removeClass("process-by-code-editor");
 
                     setTimeout(function() {
                         body.removeClass("yp-processing-now");
                         body.find(".yp-processing").hide();
-                        editor.setValue(yp_get_clean_css(true));
+
+                        var oldData = editor.session.getUndoManager();
+                        editor.setValue(get_clean_css(true));
+                        editor.session.setUndoManager(oldData);
+
                     }, 5);
 
                     // Save
@@ -13256,8 +14614,8 @@
                             action: "yp_ajax_save",
                             yp_id: id,
                             yp_stype: type,
-                            yp_data: yp_get_clean_css(true),
-                            yp_editor_data: yp_get_styles_area()
+                            yp_data: get_clean_css(true),
+                            yp_editor_data: get_editor_data()
                         });
 
                         $.post(ajaxurl, {
@@ -13275,7 +14633,7 @@
                     }
 
                     if(body.hasClass("yp-animate-manager-active")){
-                        yp_anim_manager();
+                        animation_manager();
                     }
 
                 }, 50);
@@ -13283,29 +14641,66 @@
             }
 
             //Function to convert hex format to a rgb color
-            function yp_color_converter(rgb) {
+            function get_color(rgb) {
                 if (typeof rgb !== 'undefined') {
+
+                    if(rgb.indexOf("rgba") != -1){
+                        return rgb.replace(/\s+/g,"");
+                    }
+
                     rgb = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i);
+
                     return (rgb && rgb.length === 4) ? "#" + ("0" + parseInt(rgb[1], 10).toString(16)).slice(-2) + ("0" + parseInt(rgb[2], 10).toString(16)).slice(-2) + ("0" + parseInt(rgb[3], 10).toString(16)).slice(-2) : '';
+
                 } else {
                     return '';
                 }
             }
 
+
+            // Long to short sorted for replacement.
+            window.plugin_classes_list_sorted = window.plugin_classes_list.split("|").sort(function(a, b){return b.length - a.length;}).join("|");
+
+
             // Clean classes by yellow pencil control classes.
-            function yp_classes_clean(data) {
+            function class_cleaner(data) {
 
                 if (isUndefined(data)) {
                     return '';
                 }
 
-                return data.replace(/yp-scene-1|yp-sharp-selector-mode-active|yp-scene-2|yp-scene-3|yp-scene-4|yp-scene-5|yp-scene-6|yp-anim-creator|data-anim-scene|yp-anim-link-toggle|yp-animate-test-playing|ui-draggable-handle|yp-css-data-trigger|yp-yellow-pencil-demo-mode|yp-yellow-pencil-loaded|yp-element-resized|yp-selected-handle|yp-parallax-disabled|yp_onscreen|yp_hover|yp_click|yp_focus|yp-selected-others|yp-selected|yp-demo-link|yp-live-editor-link|yp-yellow-pencil|wt-yellow-pencil|yp-content-selected|yp-selected-has-transform|yp-hide-borders-now|ui-draggable|yp-target-active|yp-yellow-pencil-disable-links|yp-closed|yp-responsive-device-mode|yp-metric-disable|yp-css-editor-active|wtfv|yp-clean-look|yp-has-transform|yp-will-selected|yp-selected|yp-fullscreen-editor|context-menu-active|yp-element-resizing|yp-element-resizing-width-left|yp-element-resizing-width-right|yp-element-resizing-height-top|yp-element-resizing-height-bottom|context-menu-active|yp-selectors-hide|yp-contextmenuopen/gi, '');
+                return data.replace(new RegExp(window.plugin_classes_list_sorted,"gi"), '');
+                
             }
+
+
+            // there is a few play method and this func clear all animation timeout.
+            function clear_animation_timer(){
+
+                clearTimeout(window.animationTimer1);
+                clearTimeout(window.animationTimer2);
+                clearTimeout(window.animationTimer3);
+                clearTimeout(window.animationTimer4);
+
+            }
+
+
+            // trigger end.
+            function element_animation_end(){
+
+                if(is_content_selected()){
+                    get_selected_element().trigger("animationend webkitAnimationEnd oanimationend MSAnimationEnd");
+                }
+
+            }
+
 
             // This function add to class to body tag.
             // ex input: .element1 .element2
             // ex output: body.custom-class .element1 element2
-            function yp_add_class_to_body(selector, prefix) {
+            function add_class_to_body(selector, prefix) {
+
+                var selectorOrginal = selector;
 
                 // Basic
                 if (selector == 'body') {
@@ -13317,10 +14712,10 @@
                     return selector;
                 }
 
-                if (yp_selector_to_array(selector).length > 0) {
+                var firstHTML = '';
+                if (get_selector_array(selector).length > 0) {
 
-                    var firstHTML = '';
-                    var firstSelector = $.trim(yp_selector_to_array(selector)[0]);
+                    var firstSelector = $.trim(get_selector_array(selector)[0]);
 
                     if (firstSelector.toLowerCase() == 'html') {
                         firstHTML = firstSelector;
@@ -13341,7 +14736,7 @@
                     }
 
                     if (firstHTML != '') {
-                        selector = yp_selector_to_array(selector)[1];
+                        selector = get_selector_array(selector)[1];
                     }
 
                 }
@@ -13360,18 +14755,31 @@
                 }
 
                 // Get all body classes.
-                if (iframeBody.attr("class") != undefined && iframeBody.attr("class") !== null) {
-                    var bodyClasses = yp_classes_to_array(iframeBody.attr("class"));
+                if (iframeBody.attr("class") !== undefined && iframeBody.attr("class") !== null) {
 
-                    // Adding to next to classes.
-                    for (var i = 0; i < bodyClasses.length; i++) {
-                        selector = selector.replace("." + bodyClasses[i] + " ", "." + bodyClasses[i] + "." + prefix + " ");
+                    // Find element
+                    var element = iframe.find(selectorOrginal);
 
-                        if (yp_selector_to_array(selector).length == 1 && bodyClasses[i] == selector.replace(".", "")) {
-                            selector = selector + "." + prefix;
+                    if(element.length > 0){
+
+                        if(element[0].nodeName == 'BODY'){
+
+                            var bodyClasses = get_classes_array(iframeBody.attr("class"));
+
+                            // Adding to next to classes.
+                            for (var i = 0; i < bodyClasses.length; i++) {
+                                selector = selector.replace("." + bodyClasses[i] + " ", "." + bodyClasses[i] + "." + prefix + " ");
+
+                                if (get_selector_array(selector).length == 1 && bodyClasses[i] == selector.replace(".", "")) {
+                                    selector = selector + "." + prefix;
+                                }
+
+                            }
+
                         }
 
                     }
+
                 }
 
                 // If class added, return.
@@ -13384,7 +14792,7 @@
                 }
 
                 // If class added, return.
-                if (selector.indexOf("." + prefix) != -1 && yp_selector_to_array(selector).length == 1) {
+                if (selector.indexOf("." + prefix) != -1 && get_selector_array(selector).length == 1) {
                     if (firstHTML != '') {
                         selector = firstHTML + " " + selector;
                     }
@@ -13432,7 +14840,7 @@
             }
 
             // Browser fullscreen
-            function yp_toggle_full_screen(elem) {
+            function toggle_fullscreen(elem) {
                 // ## The below if statement seems to work better ## if ((document.fullScreenElement && document.fullScreenElement !== null) || (document.msfullscreenElement && document.msfullscreenElement !== null) || (!document.mozFullScreen && !document.webkitIsFullScreen)) {
                 if ((document.fullScreenElement !== undefined && document.fullScreenElement === null) || (document.msFullscreenElement !== undefined && document.msFullscreenElement === null) || (document.mozFullScreen !== undefined && !document.mozFullScreen) || (document.webkitIsFullScreen !== undefined && !document.webkitIsFullScreen)) {
                     if (elem.requestFullScreen) {
@@ -13445,6 +14853,7 @@
                         elem.msRequestFullscreen();
                     }
                     body.addClass("yp-fullscreen");
+                    setTimeout(function(){draw_responsive_handle();},250);
                 } else {
                     if (document.cancelFullScreen) {
                         document.cancelFullScreen();
@@ -13456,6 +14865,7 @@
                         document.msExitFullscreen();
                     }
                     body.removeClass("yp-fullscreen");
+                    setTimeout(function(){draw_responsive_handle();},250);
                 }
             }
 
@@ -13468,7 +14878,27 @@
                     body.removeClass("yp-fullscreen");
                 }
 
+                if (event == 'FullscreenOn') {
+                    $(".fullscreen-btn").addClass("active");
+                    body.addClass("yp-fullscreen");
+                }
+
             });
+
+
+            // Disable history shift mouse.
+            mainDocument.keydown(function(e){
+            if (e.shiftKey && (e.which == '61' || e.which == '107' || e.which == '173' || e.which == '109'  || e.which == '187'  || e.which == '189'  ) ) {
+                    e.preventDefault();
+                 }
+            });
+
+            mainDocument.bind('mousewheel DOMMouseScroll', function (e) {
+                if (e.shiftKey) {
+                   e.preventDefault();
+                }
+            });
+
 
         }; // Yellow Pencil main function.
 

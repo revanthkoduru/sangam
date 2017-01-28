@@ -44,9 +44,9 @@ function get_yp_editor_link(){
 	}
 
 	if($id === 0 || $id === null || is_tag() || is_category() || is_archive() || is_author() || is_search() || is_404()){
-		$href = add_query_arg(array('yellow_pencil' => 'true', 'href' => urlencode(get_home_url().'/')),get_home_url());
+		$href = add_query_arg(array('yellow_pencil' => 'true', 'href' => yp_urlencode(get_home_url().'/')),get_home_url());
 	}else{
-		$href = add_query_arg(array('yellow_pencil' => 'true','href' => urlencode(get_permalink($id)),'yp_id' =>  $id),get_home_url());
+		$href = add_query_arg(array('yellow_pencil' => 'true','href' => yp_urlencode(get_permalink($id)),'yp_id' =>  $id),get_home_url());
 	}
 
 	return $href;
