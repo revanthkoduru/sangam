@@ -1,0 +1,1 @@
+<div class="home-header-slider"><?php echo do_shortcode( '[masterslider id="1"]' ); ?></div>

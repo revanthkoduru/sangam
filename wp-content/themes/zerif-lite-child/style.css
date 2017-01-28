@@ -1,0 +1,24 @@
+/*
+   Theme Name: Zerif lite Child
+   Theme URI: https://www.themeisle.com/ 
+   Description: This is a custom child theme I have created.
+   Author: Chuck Norris Author
+   URI: https://www.themeisle.com/ 
+   Template: zerif-lite
+   Version: 0.1 
+   */
+@media screen and (max-width:1023px) {
+    .home-header-slider {
+     padding-top: 111px;
+    }
+    }
+    @media screen and (max-width:767px) {
+    .home-header-slider {
+     padding-top: 0px;
+    }
+    }
+     @media screen and (min-width:1024px) {
+    .home-header-slider {
+     padding-top: 76px;
+    }
+}
